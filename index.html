@@ -308,6 +308,7 @@ async function whyUnreadable(mu,err){
     const t=(await r.text()).slice(0,180);
     if(r.status===401) return "the streaming helper isn't signed in. Reload the page, sign in again, and retry.";
     if(r.status===404&&!/drive|google/i.test(t)) return "the streaming helper (sw.js) isn't running. Check sw.js is deployed next to index.html, then reload the page twice.";
+    if(r.status===403&&/quota/i.test(t)) return "Google Drive's download limit for this file has been reached (Google caps how much a shared file can be read per day). Fix: in Drive, right-click the file → Make a copy, then link the copy instead — it gets a fresh limit. Or wait ~24 h.";
     if(r.status===403) return "Google Drive refused access ("+t.replace(/\s+/g," ")+"). The file may be restricted from downloading, or your account can't open it.";
     return "Drive returned "+r.status+" — "+t.replace(/\s+/g," ");
   }catch(e){ return "the streaming request failed ("+((e&&e.message)||"network error")+")."; }
@@ -595,7 +596,8 @@ async function extractFrames(){
     try{ mu=await mediaUrl(v); el=await openVideo(mu.url); }
     catch(e){ logIt("Skipped "+v.name+": "+(await whyUnreadable(mu,e))); continue; }
     const dur=el.duration||v.duration||0; if(!v.duration){ v.duration=dur; }
-    const samples=Math.min(400,Math.max(30,Math.round(dur/1.5)));
+    const streamed=!FILES.has(v.id); // Drive streams count against Google's per-file download quota — sample lighter
+    const samples=streamed?Math.min(60,Math.max(20,Math.round(dur/6))):Math.min(400,Math.max(30,Math.round(dur/1.5)));
     const step=dur/(samples+1);
     logIt("Scanning "+v.name+" ("+tc(dur)+") — "+samples+" sample points, keeping only distinct moments…");
     let last=null, got=0, fails=0;
