@@ -53,7 +53,14 @@ module.exports = async function handler(req, res) {
       }),
     });
     const j = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: (j.error && j.error.message) || "Anthropic API error" });
+    if (!r.ok) {
+      const msg = (j.error && j.error.message) || "Anthropic API error";
+      // Don't pass Anthropic's 401/403 through — the page would read it as a sign-in problem.
+      if (r.status === 401) return res.status(502).json({ error: "Anthropic rejected the API key. Check ANTHROPIC_API_KEY in Vercel (no spaces or quotes), then redeploy. (" + msg + ")" });
+      if (r.status === 403) return res.status(502).json({ error: "The API key isn't allowed to use this model or org. (" + msg + ")" });
+      if (r.status === 404) return res.status(502).json({ error: "Model not found: " + (MODELS[tier] || MODELS.default) + ". Set CLAUDE_MODEL in Vercel. (" + msg + ")" });
+      return res.status(r.status === 429 ? 429 : 502).json({ error: msg });
+    }
     const text = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
     return res.status(200).json({ text });
   } catch (e) {

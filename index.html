@@ -678,7 +678,7 @@ Give 3 distinct music options. Use exactly these cut names: "+cuts().map(cutLabe
     setProg(1); logIt("Done — "+S.shots.length+" shots proposed.");
     save(); busy=false; go(3);
   }catch(e){
-    busy=false; logIt("Stopped: "+(e&&e.code==="not_granted"?"Claude access wasn't allowed for this page.":e&&e.code==="rate_limited"?"Too many requests — wait a minute and try again.":(e&&e.message)||"unknown error")); render();
+    busy=false; logIt("Stopped: "+(e&&e.code==="rate_limited"?"Too many requests — wait a minute and try again.":(e&&e.message)||"unknown error")); render();
   }
 }
 function stepAnalyse(){
