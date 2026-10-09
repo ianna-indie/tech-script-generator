@@ -1,0 +1,7 @@
+{
+  "name": "tech-script-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "indie.io Tech Script Generator — brief + footage in, branded tech script out.",
+  "engines": { "node": ">=18" }
+}

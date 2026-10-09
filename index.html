@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tech Script Generator · indie.io</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root{
+  --ink:#1F1D3A; --ink-soft:#5B5880; --paper:#FFFFFF; --wash:#F6F5FF; --lav:#ECEAFF;
+  --indigo:#373278; --indigo-deep:#08071A; --pink:#FF9999; --pink-wash:#FFE3E3; --pink-ink:#A3343A;
+  --line:#D6D3F0; --ok:#2F7A4E; --warn:#A3343A;
+  --r-s:6px; --r-m:10px;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#ECEAFF; --ink-soft:#A9A5D6; --paper:#13112B; --wash:#0D0C22; --lav:#24204F;
+    --indigo:#8E87F0; --indigo-deep:#050412; --pink:#FF9999; --pink-wash:#3A1D27; --pink-ink:#FFB3B3;
+    --line:#2E2A5E; --ok:#7FD4A0; --warn:#FFB3B3; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#ECEAFF; --ink-soft:#A9A5D6; --paper:#13112B; --wash:#0D0C22; --lav:#24204F;
+  --indigo:#8E87F0; --indigo-deep:#050412; --pink:#FF9999; --pink-wash:#3A1D27; --pink-ink:#FFB3B3;
+  --line:#2E2A5E; --ok:#7FD4A0; --warn:#FFB3B3; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{margin:0;height:100%}
+body{background:var(--wash);color:var(--ink);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+img{max-width:100%;display:block}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100%}
+@media (max-width:820px){.app{grid-template-columns:1fr}}
+
+/* Step rail */
+.rail{background:var(--indigo-deep);color:#ECEAFF;padding:28px 20px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:28px}
+@media (max-width:820px){.rail{position:static;height:auto;padding:18px 16px;gap:14px}}
+.brand{font-stretch:125%;font-weight:800;font-size:22px;line-height:1.05;letter-spacing:-.01em}
+.brand small{display:block;font-stretch:100%;font-weight:400;font-size:13px;color:#A9A5D6;margin-top:6px;letter-spacing:0}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+@media (max-width:820px){.steps{flex-direction:row;overflow-x:auto;gap:6px}}
+.steps button{width:100%;text-align:left;background:none;border:0;padding:10px 12px;border-radius:var(--r-s);display:flex;gap:12px;align-items:baseline;cursor:pointer;color:#C9C5F2;white-space:nowrap}
+.steps button .n{font-variant-numeric:tabular-nums;font-weight:700;color:#6F6AB8;min-width:1.4em}
+.steps button[aria-current="step"]{background:#373278;color:#fff}
+.steps button[aria-current="step"] .n{color:var(--pink)}
+.steps button:hover{background:#1B1840}
+.rail .foot{margin-top:auto;font-size:12px;color:#8A86C4}
+@media (max-width:820px){.rail .foot{margin-top:0}}
+.rail .btn{background:#1B1840;border-color:#373278;color:#fff}
+
+main{padding:36px clamp(16px,4vw,56px) 80px;max-width:1180px;width:100%}
+h1{font-stretch:118%;font-weight:800;font-size:clamp(26px,3.2vw,38px);line-height:1.05;margin:0 0 6px;letter-spacing:-.015em}
+.lede{color:var(--ink-soft);margin:0 0 28px;max-width:68ch}
+h2{font-stretch:110%;font-weight:700;font-size:18px;margin:28px 0 12px}
+
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}
+label.f span.h{font-weight:400;color:var(--ink-soft)}
+input[type=text],input[type=number],select,textarea{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-s);padding:9px 11px;width:100%;font-weight:400;font-size:14px}
+textarea{resize:vertical;min-height:84px;line-height:1.45}
+.wide{grid-column:1/-1}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--paper);border-radius:var(--r-s);padding:9px 14px;cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--indigo)}
+.btn.primary{background:var(--indigo);border-color:var(--indigo);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#08071A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#08071A}}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;border-color:transparent;padding:6px 8px}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.spacer{flex:1}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-m);padding:20px}
+.note{font-size:13px;color:var(--ink-soft)}
+.err{color:var(--warn);font-size:14px;font-weight:600}
+.okc{color:var(--ok);font-weight:600}
+
+/* Drop zone */
+.drop{border:2px dashed var(--line);border-radius:var(--r-m);padding:28px;text-align:center;background:var(--paper);cursor:pointer}
+.drop.over{border-color:var(--indigo);background:var(--lav)}
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px}
+.src{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;display:flex;flex-direction:column}
+.src .thumb{aspect-ratio:16/9;background:#08071A;display:flex;align-items:center;justify-content:center;color:#8A86C4;font-size:12px}
+.src .thumb img{width:100%;height:100%;object-fit:cover}
+.src .meta{padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.src .meta b{word-break:break-all;font-weight:600}
+
+/* Film strip — the one bold element */
+.strip{background:#08071A;border-radius:var(--r-s);padding:14px 10px;position:relative;overflow-x:auto}
+.strip::before,.strip::after{content:"";position:absolute;left:0;right:0;height:8px;background-image:radial-gradient(circle at 6px 4px,#2A2660 2.6px,transparent 3px);background-size:16px 8px;pointer-events:none}
+.strip::before{top:3px}.strip::after{bottom:3px}
+.frames{display:flex;gap:8px;min-width:min-content}
+.fr{position:relative;width:184px;flex:none;border:2px solid transparent;border-radius:4px;background:#14123A;cursor:pointer;padding:0;color:#ECEAFF;text-align:left}
+.fr img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:2px}
+.fr .tc{position:absolute;left:6px;top:6px;background:rgba(8,7,26,.82);font-size:11px;padding:1px 6px;border-radius:3px;font-variant-numeric:tabular-nums;font-weight:600}
+.fr .opt{position:absolute;right:6px;top:6px;background:var(--pink);color:#08071A;font-size:11px;font-weight:800;padding:1px 6px;border-radius:3px}
+.fr .cap{display:block;font-size:11px;padding:5px 6px;color:#A9A5D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fr[aria-pressed="true"]{border-color:var(--pink)}
+.fr .rec{position:absolute;left:6px;bottom:24px;background:#373278;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px}
+.strip .empty{color:#A9A5D6;font-size:13px;padding:22px 8px}
+
+/* Shot cards */
+.toolbar{position:sticky;top:0;z-index:5;background:var(--wash);padding:10px 0;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.counter{font-variant-numeric:tabular-nums;font-weight:700;padding:6px 10px;border-radius:var(--r-s);background:var(--lav);font-size:13px}
+.counter.over{background:var(--pink-wash);color:var(--pink-ink)}
+.shot{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-m);margin:14px 0;display:grid;grid-template-columns:64px 1fr}
+@media (max-width:700px){.shot{grid-template-columns:1fr}}
+.shot .num{background:var(--indigo);color:#fff;font-stretch:125%;font-weight:800;font-size:22px;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;border-radius:var(--r-m) 0 0 var(--r-m);font-variant-numeric:tabular-nums}
+@media (max-width:700px){.shot .num{flex-direction:row;justify-content:flex-start;padding:8px 14px;border-radius:var(--r-m) var(--r-m) 0 0}}
+.shot .num button{background:none;border:0;color:#C9C5F2;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px}
+.shot .num button:hover{background:rgba(255,255,255,.12);color:#fff}
+.shot .body{padding:16px 18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.shot .purpose{font-size:13px;color:var(--ink-soft)}
+.cols3{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:12px}
+@media (max-width:900px){.cols3{grid-template-columns:1fr}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;background:var(--pink-wash);color:var(--pink-ink);padding:3px 8px;border-radius:999px;font-weight:600}
+.reason{font-size:13px;background:var(--lav);border-radius:var(--r-s);padding:8px 10px}
+.manual{font-size:11px;font-weight:700;color:var(--ok)}
+
+/* Progress */
+.log{font-size:13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-s);padding:12px;max-height:240px;overflow:auto;white-space:pre-wrap}
+.bar{height:6px;background:var(--lav);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--indigo);width:0;transition:width .3s}
+
+/* Modal */
+dialog{border:0;border-radius:var(--r-m);padding:0;max-width:min(960px,94vw);width:100%;background:var(--paper);color:var(--ink)}
+dialog::backdrop{background:rgba(8,7,26,.6)}
+dialog .hd{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+dialog .hd h3{margin:0;font-stretch:110%;font-size:17px}
+dialog .bd{padding:16px 20px;max-height:70vh;overflow:auto}
+.allframes{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;background:#08071A;padding:10px;border-radius:var(--r-s)}
+.allframes .fr{width:auto}
+
+.ws{max-width:98vw!important;width:98vw;height:94vh}
+.ws .bd{max-height:none;height:calc(94vh - 58px);display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;overflow:hidden}
+@media (max-width:900px){.ws .bd{grid-template-columns:1fr;overflow:auto;height:auto}}
+.ws .stage{display:flex;flex-direction:column;gap:10px;min-height:0}
+.ws video{width:100%;flex:1;min-height:200px;max-height:68vh;background:#08071A;border-radius:6px;object-fit:contain}
+.ws .tcbig{font-variant-numeric:tabular-nums;font-weight:800;font-stretch:115%;font-size:22px}
+.ws .keys{font-size:12px;color:var(--ink-soft)}
+.ws .keys b{display:inline-block;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin:0 2px;font-weight:700;color:var(--ink)}
+.ws .shots{overflow:auto;display:flex;flex-direction:column;gap:6px;min-height:0}
+.ws .sh{display:grid;grid-template-columns:34px 88px 1fr;gap:8px;align-items:center;text-align:left;background:var(--wash);border:1px solid var(--line);border-radius:var(--r-s);padding:6px;cursor:pointer;font-size:12px}
+.ws .sh[aria-current="true"]{border-color:var(--pink);background:var(--lav);box-shadow:inset 3px 0 0 var(--pink)}
+.ws .sh .no{font-weight:800;font-variant-numeric:tabular-nums;color:var(--indigo);text-align:center}
+.ws .sh .im{aspect-ratio:16/9;background:#08071A;border-radius:3px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#6F6AB8;font-size:10px}
+.ws .sh .im img{width:100%;height:100%;object-fit:cover}
+.ws .sh .tx{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+table.qc{border-collapse:collapse;width:100%;font-size:14px}
+table.qc td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+table.qc td:first-child{width:28px}
+.folders{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.folders button{text-align:left;background:var(--wash);border:1px solid var(--line);border-radius:var(--r-s);padding:8px 10px;cursor:pointer}
+.folders button[aria-pressed="true"]{border-color:var(--indigo);background:var(--lav);font-weight:600}
+.hidden{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Steps">
+    <div class="brand">Tech Script<br>Generator<small>indie.io creative</small></div>
+    <ol class="steps" id="steps"></ol>
+    <div class="foot"><div id="authBox"></div><div id="savedNote" style="margin-top:8px">Drafts save in this browser.</div></div>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<dialog id="dlg"><div class="hd"><h3 id="dlgTitle"></h3><span class="spacer"></span><button class="btn ghost" id="dlgClose" aria-label="Close">Close</button></div><div class="bd" id="dlgBody"></div></dialog>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if (attrs) for (const [k,v] of Object.entries(attrs)){
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()){ if (k == null || k === false) continue; el.append(k.nodeType ? k : document.createTextNode(String(k))); }
+  return el;
+}
+const pad = n => String(n).padStart(2,"0");
+const tc = s => { if (s == null || isNaN(s)) return "—"; s = Math.max(0, s); return pad(Math.floor(s/60)) + ":" + pad(Math.floor(s%60)); };
+const parseTc = str => { const p = String(str).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 1 ? p[0] : p.length === 2 ? p[0]*60+p[1] : p[0]*3600+p[1]*60+p[2]; };
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ---------- state ---------- */
+const STEPS = ["Brief","Sources","Analyse","Review shots","Music","Export"];
+const VIDEO_TYPES = ["Trailer","Launch trailer","Release date announcement","Steam teaser","Console trailer","Social video","Event trailer","Other"];
+const SHORT = {"Release date announcement":"RDA","Launch trailer":"Launch","Steam teaser":"Teaser","Console trailer":"Console","Social video":"Social","Event trailer":"Event","Trailer":"Trailer"};
+const cutLabel = t => t==="Other" ? (S.project.videoTypeOther||"Other") : (SHORT[t]||t);
+const cuts = () => (S.project.videoTypes&&S.project.videoTypes.length) ? S.project.videoTypes : ["Trailer"];
+const shotsOf = c => S.shots.filter(x=>x.cut===c);
+const activeCut = () => cuts().includes(S.activeCut) ? S.activeCut : cuts()[0];
+const SUPER_TYPES = ["None","Lower Thirds","Title Card","Supers","Caption","Callout","Intro","End-card"];
+const SHOT_TYPES = ["Full screen","Mid-shot","Close-up"];
+const SOUNDS = ["None","Music","SFX","VO"];
+const OLD_SUPER = {"Lower third":"Lower Thirds","Feature callout":"Callout","Gameplay mechanic":"Callout","Character name":"Supers","Custom":"Supers","Announcement":"Title Card","Release information":"End-card","Platform information":"Supers"};;
+const STATUSES = ["Proposed","Approved","Needs capture","No screenshot"];
+let S = {
+  step:0,
+  project:{game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5},
+  activeCut:null,
+  sources:[],      // {id,kind:'video'|'image'|'drive-ref',name,duration,driveUrl,thumb}
+  frames:[],       // {id,sourceId,sourceName,t,dataUrl,kind}
+  shots:[],        // {id,desc,purpose,edited,options:[{frame,reason}],recommended,selected,manual,superType,superText,sfx,notes,status,confirm:[]}
+  analysis:null, missing:[], music:[], tracks:[],
+  exportInfo:{sheetName:"",folderId:"",folderName:"My Drive",lastUrl:""}
+};
+const FILES = new Map(); // sourceId -> File (memory only)
+
+/* IndexedDB draft */
+const DB_NAME="tsg", STORE="s";
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+let saveT;
+function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{ try{ const d=await idb(); d.transaction(STORE,"readwrite").objectStore(STORE).put(JSON.stringify(S),"cur"); $("#savedNote").textContent="Draft saved "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+"."; }catch(e){ $("#savedNote").textContent="Draft not saved in this browser."; } },500); }
+async function load(){ try{ const d=await idb(); const v=await new Promise(r=>{ const q=d.transaction(STORE).objectStore(STORE).get("cur"); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); }); if(v){ const o=JSON.parse(v); S=Object.assign(S,o); S.project=Object.assign({}, S.project, o.project); } if(!Array.isArray(S.project.videoTypes)) S.project.videoTypes=[S.project.videoType||"Trailer"]; if(!S.project.durations) S.project.durations={}; if(S.project.duration&&!S.project.durations[S.project.videoTypes[0]]) S.project.durations[S.project.videoTypes[0]]=S.project.duration; S.shots.forEach(x=>{ if(!x.cut) x.cut=S.project.videoTypes[0]; }); if(!Array.isArray(S.tracks)) S.tracks=[]; S.shots.forEach(x=>{ if(OLD_SUPER[x.superType]) x.superType=OLD_SUPER[x.superType]; if(!SUPER_TYPES.includes(x.superType)) x.superType="None"; if(x.sfx&&!x.soundDesc){ x.soundDesc=x.sfx; x.sound="SFX"; } if(!x.sound) x.sound="None"; if(!x.shotType) x.shotType="Full screen"; }); }catch(e){} }
+
+/* ---------- capabilities ---------- */
+let SAMPLE=null, MCP=null, DL=null, IMG_LIMITS=null;
+const DRIVE="Google Drive";
+/* ===== Vercel runtime: Google sign-in, Drive REST, Claude via /api/claude ===== */
+let CFG={}, GTOKEN=null, GEXP=0, GEMAIL="", tokenClient=null, tokenWaiters=[];
+const SCOPES="openid email https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
+function renderAuth(){
+  const box=$("#authBox"); if(!box) return;
+  if(!CFG.googleClientId){ box.replaceChildren(h("span",{class:"note",style:"color:#FFB3B3"},CFG.configError==="api"?"The /api routes aren't deployed. In Vercel, set Root Directory to the folder that contains index.html and the api folder, then redeploy.":"GOOGLE_CLIENT_ID isn't set for this deployment. Add it in Vercel → Settings → Environment Variables (Production), then redeploy.")); return; }
+  box.replaceChildren(GTOKEN?h("div",null,h("div",{style:"font-size:12px;color:#C9C5F2"},"Signed in"),h("div",{style:"font-size:12px;word-break:break-all"},GEMAIL||"Google account"),h("button",{class:"btn small",style:"margin-top:6px",onclick:signOut},"Sign out"))
+    :h("button",{class:"btn small",onclick:()=>signIn(true)},"Sign in with Google"));
+}
+function signIn(interactive){
+  return new Promise((res,rej)=>{
+    if(!window.google||!google.accounts||!google.accounts.oauth2){ rej(new Error("Google sign-in didn't load. Reload the page.")); return; }
+    if(!tokenClient) tokenClient=google.accounts.oauth2.initTokenClient({client_id:CFG.googleClientId,scope:SCOPES,callback:async r=>{
+      const w=tokenWaiters.splice(0);
+      if(r.error){ w.forEach(x=>x.rej(new Error(r.error_description||r.error))); return; }
+      GTOKEN=r.access_token; GEXP=Date.now()+((Number(r.expires_in)||3500)-60)*1000;
+      try{ const u=await fetch("https://www.googleapis.com/oauth2/v3/userinfo",{headers:{Authorization:"Bearer "+GTOKEN}}).then(x=>x.json()); GEMAIL=u.email||""; }catch(e){}
+      sessionStorage.setItem("tsg_hint",GEMAIL||"");
+      await sendTokenToSW(); MCP=driveMCP; renderAuth(); render(); w.forEach(x=>x.res(GTOKEN));
+    }});
+    tokenWaiters.push({res,rej});
+    tokenClient.requestAccessToken({prompt:interactive?"":"none",login_hint:sessionStorage.getItem("tsg_hint")||undefined});
+  });
+}
+function signOut(){ if(GTOKEN&&window.google) google.accounts.oauth2.revoke(GTOKEN,()=>{}); GTOKEN=null; GEMAIL=""; MCP=null; sessionStorage.removeItem("tsg_hint"); renderAuth(); render(); }
+async function token(){ if(GTOKEN&&Date.now()<GEXP) return GTOKEN; return signIn(false).catch(()=>signIn(true)); }
+const DAPI="https://www.googleapis.com/drive/v3";
+async function gfetch(url,opts={}){ const t=await token(); const r=await fetch(url,Object.assign({},opts,{headers:Object.assign({Authorization:"Bearer "+t},opts.headers||{})}));
+  if(!r.ok){ let m=""; try{ m=(await r.json()).error.message; }catch(e){} const err=new Error(m||("Google Drive returned "+r.status)); err.code=r.status===401?"needs_reauth":r.status===403?"blocked_by_policy":"tool_error"; throw err; } return r; }
+function toDriveQ(q){ return String(q).replace(/parentId = '([^']+)'/g,"'$1' in parents").replace(/\btitle contains\b/g,"name contains")+" and trashed = false"; }
+const mapFile=f=>({id:f.id,title:f.name,mimeType:f.mimeType,fileSize:f.size,viewUrl:f.webViewLink,parentId:(f.parents||[])[0]});
+const driveMCP={
+  async callTool(server,tool,input){
+    if(tool==="search_files"){
+      const u=DAPI+"/files?pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives&fields=files(id,name,mimeType,size,parents,webViewLink)&q="+encodeURIComponent(toDriveQ(input.query));
+      const j=await (await gfetch(u)).json(); return {payload:{files:(j.files||[]).map(mapFile)}};
+    }
+    if(tool==="download_file_content"){
+      const r=await gfetch(DAPI+"/files/"+input.fileId+"?alt=media&supportsAllDrives=true"); const buf=await r.arrayBuffer();
+      if(buf.byteLength>60e6) throw Object.assign(new Error("File is too large to preview here."),{code:"tool_error"});
+      return {payload:{content:b64(buf),mimeType:r.headers.get("content-type")}};
+    }
+    if(tool==="create_file"){
+      const meta={name:input.title,mimeType:"application/vnd.google-apps.spreadsheet"}; if(input.parentId) meta.parents=[input.parentId];
+      const bin=Uint8Array.from(atob(input.base64Content),c=>c.charCodeAt(0));
+      const fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",new Blob([bin],{type:input.contentMimeType}));
+      const j=await (await gfetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink",{method:"POST",body:fd})).json();
+      return {payload:{id:j.id,viewUrl:j.webViewLink}};
+    }
+    if(tool==="get_meta"){ const j=await (await gfetch(DAPI+"/files/"+input.fileId+"?supportsAllDrives=true&fields=id,name,mimeType,size,parents,webViewLink")).json(); return {payload:mapFile(j)}; }
+    throw Object.assign(new Error("Unknown Drive action "+tool),{code:"tool_error"});
+  },
+  async describeTool(){ return {inputSchema:{properties:{parentId:{}}}}; }
+};
+/* Service worker streams Drive videos with your token, so the player can seek and capture without downloading */
+async function swReady(){ if(!("serviceWorker" in navigator)) throw new Error("This browser can't stream Drive videos (no service worker support)."); await navigator.serviceWorker.ready; if(!navigator.serviceWorker.controller){ await new Promise(r=>{ navigator.serviceWorker.addEventListener("controllerchange",r,{once:true}); setTimeout(r,3000); }); } if(!navigator.serviceWorker.controller) throw new Error("Reload the page once so Drive streaming can start."); }
+async function sendTokenToSW(){ try{ await swReady(); await new Promise(res=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>res(); navigator.serviceWorker.controller.postMessage({type:"token",token:GTOKEN},[ch.port2]); setTimeout(res,1500); }); }catch(e){} }
+const isDriveVideo=x=>!!(x&&x.driveId&&GTOKEN&&/video/i.test((x.linkType||"")+" "+(x.mime||"")));
+function canPlay(x){ return FILES.has(x.id)||isDriveVideo(x); }
+async function mediaUrl(x){ if(FILES.has(x.id)) return {url:URL.createObjectURL(FILES.get(x.id)),blob:true}; await token(); await swReady(); await sendTokenToSW(); return {url:"/drive-stream/"+x.driveId+(x.size?"?size="+x.size:""),blob:false}; }
+function makeSample(){
+  const toB64=blob=>new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+  return {
+    async json(prompt,opts={}){
+      const t=await token();
+      // Vercel caps request bodies at 4.5 MB — shrink the contact sheets until the request fits (~3.6 MB to be safe)
+      const LIMIT=3.6e6-prompt.length;
+      const shrink=(blob,scale,q)=>new Promise(r=>{ const im=new Image(); im.onload=()=>{ const c=document.createElement("canvas"); c.width=Math.round(im.width*scale); c.height=Math.round(im.height*scale); c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(im.src); c.toBlob(r,"image/jpeg",q); }; im.src=URL.createObjectURL(blob); });
+      let blobs=(opts.images||[]).slice(0,20), scale=1, q=0.8;
+      let total=blobs.reduce((a,b)=>a+b.size*1.37,0);
+      for(let i=0;i<6&&total>LIMIT;i++){ scale*=0.82; q=Math.max(0.5,q-0.07); blobs=await Promise.all((opts.images||[]).slice(0,20).map(b=>shrink(b,scale,q))); total=blobs.reduce((a,b)=>a+b.size*1.37,0); }
+      while(total>LIMIT&&blobs.length>1){ blobs.pop(); total=blobs.reduce((a,b)=>a+b.size*1.37,0); }
+      const images=[]; for(const b of blobs) images.push({media_type:"image/jpeg",data:await toB64(b)});
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({prompt,images,tier:opts.modelTier||"default"})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){ const e=new Error(j.error||("Claude request failed ("+r.status+")")); if(r.status===413) e.message="The request was too big for the server even after shrinking the stills. Try fewer or shorter clips."; e.code=r.status===429?"rate_limited":r.status===401||r.status===403?"not_granted":"error"; throw e; }
+      const txt=String(j.text||"").replace(/```json|```/g,""); const a=txt.indexOf("{"), b2=txt.lastIndexOf("}");
+      try{ return JSON.parse(txt.slice(a,b2+1)); }catch(e){ throw new Error("Claude's answer wasn't valid JSON. Try again."); }
+    },
+    async limits(){ return {images:{maxCount:10}}; }
+  };
+}
+async function lightUp(){
+  try{ const r=await fetch("/api/config",{cache:"no-store"}); CFG=r.ok?await r.json():{configError:"api"}; }catch(e){ CFG={configError:"api"}; }
+  if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js"); }catch(e){} }
+  SAMPLE=makeSample(); IMG_LIMITS={maxCount:10};
+  DL={save:async({filename,data})=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(data); a.download=filename; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }};
+  renderAuth();
+  const wait=()=>new Promise(r=>{ const t0=Date.now(); (function poll(){ if(window.google&&google.accounts&&google.accounts.oauth2) r(true); else if(Date.now()-t0>8000) r(false); else setTimeout(poll,100); })(); });
+  if(CFG.googleClientId&&sessionStorage.getItem("tsg_hint")!==null&&await wait()) signIn(false).catch(()=>{});
+  render();
+}
+
+/* ---------- rail ---------- */
+function renderRail(){
+  const ol=$("#steps"); ol.replaceChildren();
+  STEPS.forEach((t,i)=> ol.append(h("li",null,h("button",{"aria-current":S.step===i?"step":null,onclick:()=>go(i)},h("span",{class:"n"},i+1),t))));
+}
+function go(i){ S.step=i; save(); render(); window.scrollTo(0,0); }
+
+/* ---------- step 1: brief ---------- */
+function field(label, key, opts={}){
+  const p=S.project;
+  let input;
+  if (opts.type==="select"){ input=h("select",{onchange:e=>{p[key]=e.target.value; save(); if(opts.rerender) render();}}, opts.options.map(o=>h("option",{value:o,selected:p[key]===o},o))); }
+  else if (opts.type==="area"){ input=h("textarea",{rows:opts.rows||4,placeholder:opts.ph||"",oninput:e=>{p[key]=e.target.value; save();}}); input.value=p[key]||""; }
+  else { input=h("input",{type:opts.type||"text",placeholder:opts.ph||"",value:p[key]??"",oninput:e=>{p[key]=opts.type==="number"?Number(e.target.value):e.target.value; save();}}); }
+  return h("label",{class:"f"+(opts.wide?" wide":"")},label, opts.hint?h("span",{class:"h"},opts.hint):null, input);
+}
+function videoTypePicker(){
+  const p=S.project;
+  const toggle=(t,on)=>{ const set=new Set(p.videoTypes); on?set.add(t):set.delete(t); p.videoTypes=VIDEO_TYPES.filter(x=>set.has(x)); save(); render(); };
+  const preset=(arr)=>{ p.videoTypes=arr.slice(); save(); render(); };
+  return h("div",{class:"wide panel"},
+    h("div",{class:"row"},h("b",null,"Video type"),h("span",{class:"note"},"Pick one, or several to get a separate tech script tab for each."),h("span",{class:"spacer"}),
+      h("button",{class:"btn small",onclick:()=>preset(["Release date announcement","Launch trailer"])},"RDA + Launch"),
+      h("button",{class:"btn small",onclick:()=>preset(["Release date announcement"])},"RDA only"),
+      h("button",{class:"btn small",onclick:()=>preset(["Launch trailer"])},"Launch only")),
+    h("div",{style:"display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:12px"},
+      VIDEO_TYPES.map(t=>h("label",{class:"row",style:"font-size:14px"},h("input",{type:"checkbox",checked:p.videoTypes.includes(t),onchange:e=>toggle(t,e.target.checked)}),t+(SHORT[t]&&SHORT[t]!==t?" ("+SHORT[t]+")":"")))),
+    p.videoTypes.includes("Other")?h("label",{class:"f",style:"margin-top:12px"},"Describe the other video type",h("input",{type:"text",value:p.videoTypeOther,oninput:e=>{p.videoTypeOther=e.target.value; save();}})):null,
+    p.videoTypes.length?h("div",{class:"grid2",style:"margin-top:14px"},p.videoTypes.map(t=>h("label",{class:"f"},"Target duration — "+cutLabel(t),h("input",{type:"text",placeholder:"e.g. 45–60s",value:p.durations[t]||"",oninput:e=>{p.durations[t]=e.target.value; save();}})))):h("p",{class:"err"},"Pick at least one video type."));
+}
+function stepBrief(){
+  const p=S.project;
+  const briefFile=h("input",{type:"file",accept:".txt,.md,.csv,text/plain,text/markdown",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; p.brief=(p.brief?p.brief+"\n\n":"")+await f.text(); save(); render(); }});
+  return [
+    h("h1",null,"Start with the brief"),
+    h("p",{class:"lede"},"Fill in what you already know. Anything left blank is treated as unknown and flagged for confirmation instead of guessed."),
+    h("div",{class:"grid2"},
+      field("Game title","game",{ph:"e.g. Lost Vulcan"}),
+      videoTypePicker(),
+      field("Platform","platform",{ph:"e.g. Steam, YouTube, TikTok"}),
+      field("Aspect ratio","aspect",{ph:"16:9"}),
+      field("Max supers per video","supersCap",{type:"number",hint:"The counter turns red past this number."}),
+      field("Brief / creative direction","brief",{type:"area",rows:12,wide:true,ph:"Paste the brief here, or load a text file."}),
+      h("div",{class:"row wide"},h("button",{class:"btn small",onclick:()=>briefFile.click()},"Load brief from a text file"),briefFile),
+      field("Campaign copy or required messaging","messaging",{type:"area",rows:3,wide:true}),
+      field("Mandatory items","mandatory",{type:"area",rows:3,wide:true,hint:"Logos, ratings, platforms, release dates, URLs, legal copy."})
+    ),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn primary",onclick:()=>go(1)},"Continue to sources"))
+  ];
+}
+
+/* ---------- step 2: sources ---------- */
+async function addFiles(list){
+  for (const f of list){
+    const id=uid();
+    if (f.type.startsWith("video/") || /\.(mp4|mov|webm|m4v)$/i.test(f.name)){
+      FILES.set(id,f);
+      const src={id,kind:"video",name:f.name,duration:null,thumb:null,interval:null};
+      S.sources.push(src);
+      try{ const v=await openVideo(f); src.duration=v.duration; src.thumb=await grab(v,Math.min(1,v.duration/2),240); }catch(e){ src.error="This browser can't decode this file. Export an H.264 .mp4 proxy and add that instead."; }
+    } else if (f.type.startsWith("image/")){
+      const dataUrl=await fileToThumb(f,640);
+      const src={id,kind:"image",name:f.name,thumb:dataUrl};
+      S.sources.push(src);
+    }
+    save(); render();
+  }
+}
+function openVideo(fileOrUrl){
+  return new Promise((res,rej)=>{
+    const v=document.createElement("video"); v.muted=true; v.preload="auto"; v.playsInline=true;
+    v.src=typeof fileOrUrl==="string"?fileOrUrl:URL.createObjectURL(fileOrUrl);
+    v.onloadeddata=()=>res(v); v.onerror=()=>rej(new Error("decode"));
+    setTimeout(()=>rej(new Error("timeout")),30000);
+  });
+}
+function grab(v,t,w){
+  return new Promise((res,rej)=>{
+    let done=false;
+    const draw=()=>{ if(done) return; done=true; v.removeEventListener("seeked",draw); clearTimeout(to); try{ const r=v.videoHeight/v.videoWidth||9/16; const c=document.createElement("canvas"); c.width=w; c.height=Math.round(w*r); c.getContext("2d").drawImage(v,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.72)); }catch(e){rej(e);} };
+    const target=Math.min(Math.max(0,t),Math.max(0,(isFinite(v.duration)?v.duration:t)-0.05));
+    const to=setTimeout(()=>{ if(!done){ done=true; v.removeEventListener("seeked",draw); rej(new Error("The video didn't seek to "+tc(target)+". It may not be fully readable in this browser.")); } },8000);
+    v.addEventListener("seeked",draw);
+    if(Math.abs(v.currentTime-target)<0.01) v.currentTime=target+0.02; else v.currentTime=target;
+  });
+}
+function fileToThumb(f,w){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const r=img.height/img.width; const c=document.createElement("canvas"); c.width=Math.min(w,img.width); c.height=Math.round(c.width*r); c.getContext("2d").drawImage(img,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.8)); URL.revokeObjectURL(img.src); }; img.onerror=rej; img.src=URL.createObjectURL(f); }); }
+function dataUrlToThumb(url,w){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>{ const r=img.height/img.width; const c=document.createElement("canvas"); c.width=Math.min(w,img.width); c.height=Math.round(c.width*r); c.getContext("2d").drawImage(img,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",0.8)); }; img.onerror=rej; img.src=url; }); }
+
+/* Linked sources (no download) */
+const isLink = x => x.kind==="link"||x.kind==="drive-ref";
+const linkUrl = x => x.url||x.driveUrl||"";
+function driveIdFrom(u){ const m=String(u).match(/\/(?:file\/d|folders|document\/d|presentation\/d|spreadsheets\/d)\/([A-Za-z0-9_-]{10,})/)||String(u).match(/[?&]id=([A-Za-z0-9_-]{10,})/); return m?m[1]:null; }
+function linkKind(u){ if(/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(u)) return "drive-folder"; if(/drive\.google\.com|docs\.google\.com/.test(u)) return "drive-file"; if(/youtu\.?be/.test(u)) return "YouTube"; if(/vimeo\.com/.test(u)) return "Vimeo"; return "Link"; }
+function linkWithTime(src,t){ const u=linkUrl(src); if(t==null||!u) return u; if(/youtu\.?be/.test(u)) return u+(u.includes("?")?"&":"?")+"t="+Math.floor(t)+"s"; if(/vimeo\.com/.test(u)) return u+"#t="+Math.floor(t)+"s"; return u; }
+async function addLinks(text, msgEl){
+  const urls=String(text).split(/[\s,]+/).map(x=>x.trim()).filter(x=>/^https?:\/\//i.test(x));
+  if(!urls.length){ msgEl.textContent="Paste at least one link starting with https://"; msgEl.className="err"; return; }
+  for (const u of urls){
+    const kind=linkKind(u), did=driveIdFrom(u);
+    if(kind==="drive-folder"&&did){
+      if(!MCP){ S.sources.push({id:uid(),kind:"link",name:"Drive folder",url:u,linkType:"Drive folder"}); continue; }
+      msgEl.textContent="Reading the Drive folder…"; msgEl.className="note";
+      try{ const files=await listFolder(did); let n=0;
+        for(const f of files){ if(!/^video\//.test(f.mimeType||"")&&!/^image\//.test(f.mimeType||"")) continue; if(S.sources.some(x=>x.driveId===f.id)) continue;
+          S.sources.push({id:uid(),kind:"link",linkType:/^video\//.test(f.mimeType)?"Drive video":"Drive image",name:f.title,url:f.viewUrl,driveId:f.id,mime:f.mimeType,size:f.fileSize?Number(f.fileSize):null}); n++; }
+        msgEl.textContent="Linked "+n+" file(s) from the folder."; msgEl.className="okc";
+      }catch(e){ msgEl.textContent=mcpErr(e); msgEl.className="err"; S.sources.push({id:uid(),kind:"link",name:"Drive folder",url:u,linkType:"Drive folder"}); }
+    } else {
+      if(S.sources.some(x=>linkUrl(x)===u)) continue;
+      let name=decodeURIComponent((u.split("?")[0].split("/").filter(Boolean).pop())||u);
+      if(kind==="drive-file") name="Drive file "+(did?did.slice(0,6):"");
+      const src={id:uid(),kind:"link",linkType:kind==="drive-file"?"Drive file":kind,name,url:u,driveId:did||null};
+      if(kind==="drive-file"&&did&&MCP){ try{ const m=(await MCP.callTool(DRIVE,"get_meta",{fileId:did})).payload; src.name=m.title; src.mime=m.mimeType; src.size=m.fileSize?Number(m.fileSize):null; src.linkType=/^video\//.test(m.mimeType)?"Drive video":/^image\//.test(m.mimeType)?"Drive image":"Drive file"; }catch(e){ msgEl.textContent=mcpErr(e); msgEl.className="err"; } }
+      S.sources.push(src);
+    }
+  }
+  save(); render();
+}
+/* Connect a local / Drive-for-Desktop folder: files play from disk, nothing is downloaded by this page */
+function folderInput(onDone){
+  const inp=h("input",{type:"file",webkitdirectory:true,directory:true,multiple:true,class:"hidden",onchange:e=>{ connectFiles([...e.target.files]).then(onDone); inp.remove(); }});
+  document.body.append(inp); inp.click();
+}
+function fileInput(onDone){
+  const inp=h("input",{type:"file",multiple:true,accept:"video/*,.mov,.mp4,.m4v,.webm",class:"hidden",onchange:e=>{ connectFiles([...e.target.files]).then(onDone); inp.remove(); }});
+  document.body.append(inp); inp.click();
+}
+async function connectFiles(files){
+  const vids=files.filter(f=>f.type.startsWith("video/")||/\.(mp4|mov|m4v|webm)$/i.test(f.name));
+  let matched=0, added=0;
+  for(const f of vids){
+    const link=S.sources.find(x=>isLink(x)&&x.name===f.name);
+    if(link){ FILES.set(link.id,f); link.playable=true; matched++; continue; }
+    const ex=S.sources.find(x=>x.kind==="video"&&x.name===f.name);
+    if(ex){ FILES.set(ex.id,f); delete ex.error; matched++; continue; }
+    const id=uid(); FILES.set(id,f); S.sources.push({id,kind:"video",name:f.name,duration:null,thumb:null}); added++;
+  }
+  save(); render();
+  if(vids.length&&S.shots.length&&SAMPLE&&S.shots.some(x=>!x.selected)) setTimeout(()=>fillFrames(),300);
+  return {matched,added,total:vids.length};
+}
+const playable=()=>S.sources.filter(x=>canPlay(x)&&!x.error);
+function linkPanel(){
+  const ta=h("textarea",{rows:3,placeholder:"Paste Google Drive file or folder links, YouTube or Vimeo links — one per line"});
+  const msg=h("p",{class:"note"},"Linked footage is never downloaded — once you're signed in with Google it streams from Drive for preview, capture and automatic frame scanning.");
+  return h("div",{class:"panel",style:"margin-top:14px"},h("b",null,"Link footage instead of uploading it"),ta,
+    h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn primary small",onclick:()=>addLinks(ta.value,msg)},"Add links"),h("button",{class:"btn small",disabled:!MCP,onclick:openDriveImport},"Browse Google Drive"),
+      h("button",{class:"btn small",onclick:()=>folderInput(r=>{ msg.textContent=r.total?("Connected "+r.total+" video(s): "+r.matched+" matched to linked files, "+r.added+" new. They play from your disk in the capture workspace."):"No videos found in that folder."; msg.className=r.total?"okc":"err"; })},"Connect footage folder (Drive for Desktop)")),msg,
+    h("p",{class:"note"},"Have Google Drive for desktop? Connect the synced footage folder: the clips stream from Drive as you scrub — no full download — and linked files are matched by name so you can preview and capture them."));
+}
+function stepSources(){
+  const input=h("input",{type:"file",multiple:true,accept:"video/*,image/*,.mov,.mp4,.m4v,.webm",class:"hidden",onchange:e=>addFiles([...e.target.files])});
+  const drop=h("div",{class:"drop",tabindex:0,role:"button",onclick:()=>input.click(),onkeydown:e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();input.click();}},
+    ondragover:e=>{e.preventDefault();drop.classList.add("over");},ondragleave:()=>drop.classList.remove("over"),
+    ondrop:e=>{e.preventDefault();drop.classList.remove("over");addFiles([...e.dataTransfer.files]);}},
+    h("strong",null,"Drop gameplay footage and screenshots here"),h("div",{class:"note"},"MP4/H.264 works everywhere. ProRes .mov files need an H.264 proxy. Files stay on your computer — only small stills are sent for analysis."));
+  const cards=S.sources.map(s=>h("div",{class:"src"},
+    h("div",{class:"thumb"}, s.thumb?h("img",{src:s.thumb,alt:""}): isLink(s)?(s.linkType||"Linked")+" — not downloaded":"No preview"),
+    h("div",{class:"meta"},h("b",null,s.name),
+      h("span",{class:"note"}, s.kind==="video"?("Video · "+tc(s.duration)+(FILES.has(s.id)?"":" · re-add file to capture new frames")): s.kind==="image"?"Screenshot":(s.linkType||"Link")+(s.size?" · "+(s.size/1e9).toFixed(1)+" GB":"")+(FILES.has(s.id)?" · playable from your disk":isDriveVideo(s)?" · streams from Drive":"")),
+      isLink(s)?h("a",{href:linkUrl(s),target:"_blank",rel:"noopener",style:"font-size:13px"},"Open link"):null,
+      s.error?h("span",{class:"err"},s.error):null,
+      h("div",{class:"row"},h("button",{class:"btn ghost small",onclick:()=>{S.sources=S.sources.filter(x=>x.id!==s.id); S.frames=S.frames.filter(f=>f.sourceId!==s.id); FILES.delete(s.id); save(); render();}},"Remove")))
+  ));
+  return [
+    h("h1",null,"Add source material"),
+    h("p",{class:"lede"},"Upload clips, or link them from Google Drive (they stream — nothing downloads). Every shot keeps a link back to the source and timestamp."),
+    drop,input,
+    linkPanel(),
+    S.sources.length?h("div",{class:"srcs"},cards):h("p",{class:"note",style:"margin-top:16px"},"No sources yet. You can still analyse with the brief alone — shots will be written as capture requests without frames."),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(0)},"Back"),h("button",{class:"btn primary",onclick:()=>go(2)},"Continue to analysis"))
+  ];
+}
+
+/* Drive helpers */
+function mcpErr(e){
+  const map={needs_reauth:"Reconnect Google Drive in claude.ai Settings → Connectors.",server_not_connected:"Add Google Drive in claude.ai Settings → Connectors.",not_in_manifest:"Google Drive is turned off for this page. Turn it on from the page's Permissions menu.",selection_required:"Choose which Google Drive connection to use, then try again.",blocked_by_policy:"Your organization blocks this Drive action.",server_unavailable:"Google Drive didn't answer. Try again in a moment.",tool_error:"Google Drive reported: "+(e&&e.message||"an error"),approval_required:"This Drive action needs your approval. Try again and allow it."};
+  return (e&&map[e.code])||("Google Drive request failed"+(e&&e.message?": "+e.message:"."));
+}
+async function drive(tool,input){ const r=await MCP.callTool(DRIVE,tool,input); let p=r.payload; if(typeof p==="string"){ try{p=JSON.parse(p);}catch(_){} } return p; }
+async function searchFolders(q){ const esc=q.replace(/'/g,"\\'"); const p=await drive("search_files",{query:"mimeType = 'application/vnd.google-apps.folder'"+(q?" and title contains '"+esc+"'":"")}); return (p&&p.files)||[]; }
+async function listFolder(id){ const p=await drive("search_files",{query:"parentId = '"+id+"'"}); return (p&&p.files)||[]; }
+
+function folderPicker(onPick, note){
+  const box=h("div");
+  const q=h("input",{type:"text",placeholder:"Search folder name"});
+  const out=h("div",{class:"folders"});
+  const msg=h("div",{class:"note"},note||"");
+  async function run(){ msg.textContent="Searching…"; out.replaceChildren(); try{ const fs=await searchFolders(q.value.trim()); msg.textContent=fs.length?"":"No folders match."; fs.forEach(f=>{ const b=h("button",{"aria-pressed":"false"},f.title); b.addEventListener("click",()=>{[...out.children].forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); onPick(f);}); out.append(b); }); }catch(e){ msg.textContent=mcpErr(e); msg.className="err"; } }
+  box.append(h("div",{class:"row"},q,h("button",{class:"btn small",onclick:run},"Search")),msg,out);
+  q.addEventListener("keydown",e=>{ if(e.key==="Enter") run(); });
+  return box;
+}
+function openDialog(title, body){ $("#dlg").classList.remove("ws"); $("#dlgTitle").textContent=title; $("#dlgBody").replaceChildren(...[].concat(body)); if(!$("#dlg").open) $("#dlg").showModal(); }
+$("#dlgClose").addEventListener("click",()=>$("#dlg").close());
+
+function openDriveImport(){
+  const list=h("div",{style:"margin-top:14px"});
+  const pick=folderPicker(async f=>{
+    list.replaceChildren(h("p",{class:"note"},"Loading "+f.title+"…"));
+    try{
+      const files=await listFolder(f.id);
+      const imgs=files.filter(x=>/^image\//.test(x.mimeType||"")), vids=files.filter(x=>/^video\//.test(x.mimeType||""));
+      const checks=imgs.map(x=>({x,cb:h("input",{type:"checkbox",checked:false})}));
+      const vchecks=vids.map(x=>({x,cb:h("input",{type:"checkbox",checked:true})}));
+      list.replaceChildren(
+        h("p",null,imgs.length+" screenshot"+(imgs.length===1?"":"s")+", "+vids.length+" video"+(vids.length===1?"":"s")+" in "+f.title+"."),
+        vids.length?h("div",null,h("b",null,"Videos — linked, not downloaded"),vchecks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title+(x.fileSize?" ("+(Number(x.fileSize)/1e9).toFixed(1)+" GB)":"")))):null,
+        imgs.length?h("div",{style:"margin-top:10px"},h("b",null,"Screenshots — tick to pull in so Claude can see them"),checks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title))):null,
+        h("div",{class:"row",style:"margin-top:12px"},h("button",{class:"btn primary",onclick:async e=>{
+          e.currentTarget.disabled=true;
+          for (const {x:v,cb} of vchecks){ if(cb.checked&&!S.sources.some(s=>s.driveId===v.id)) S.sources.push({id:uid(),kind:"link",linkType:"Drive video",name:v.title,url:v.viewUrl,driveId:v.id,mime:v.mimeType,size:v.fileSize?Number(v.fileSize):null}); }
+          for (const {x,cb} of checks){ if(!cb.checked){ if(!S.sources.some(s=>s.driveId===x.id)) S.sources.push({id:uid(),kind:"link",linkType:"Drive image",name:x.title,url:x.viewUrl,driveId:x.id}); continue; } try{ const p=await drive("download_file_content",{fileId:x.id}); const b64=p&&p.content; if(!b64) continue; const thumb=await dataUrlToThumb("data:"+(x.mimeType||"image/png")+";base64,"+b64,640); S.sources.push({id:uid(),kind:"image",name:x.title,thumb,driveId:x.id,driveUrl:x.viewUrl}); }catch(err){ list.append(h("p",{class:"err"},x.title+": "+mcpErr(err))); } }
+          save(); $("#dlg").close(); render();
+        }},"Add to sources")));
+    }catch(e){ list.replaceChildren(h("p",{class:"err"},mcpErr(e))); }
+  },"Pick the footage folder. Videos are linked, never downloaded.");
+  openDialog("Add from Google Drive",[pick,list]);
+}
+
+/* ---------- step 3: analyse ---------- */
+let busy=false, logLines=[], progress=0;
+function logIt(t){ logLines.push(t); const el=$("#log"); if(el){ el.textContent=logLines.join("\n"); el.scrollTop=el.scrollHeight; } }
+function setProg(p){ progress=p; const b=$("#bar i"); if(b) b.style.width=Math.round(p*100)+"%"; }
+
+/* Perceptual hash (dHash 9x8) so near-identical moments are dropped */
+const HC=document.createElement("canvas"); HC.width=9; HC.height=8;
+function dhash(src){ const x=HC.getContext("2d",{willReadFrequently:true}); x.drawImage(src,0,0,9,8); const d=x.getImageData(0,0,9,8).data; const g=[]; for(let i=0;i<d.length;i+=4) g.push(d[i]*0.3+d[i+1]*0.59+d[i+2]*0.11); let bits=""; for(let y=0;y<8;y++) for(let c=0;c<8;c++) bits+=g[y*9+c]>g[y*9+c+1]?"1":"0"; return bits; }
+function ham(a,b){ if(!a||!b) return 64; let n=0; for(let i=0;i<64;i++) if(a[i]!==b[i]) n++; return n; }
+const DISTINCT=11; // bits that must differ for two frames to count as different shots
+function imgHash(url){ return new Promise(r=>{ const im=new Image(); im.onload=()=>r(dhash(im)); im.onerror=()=>r(null); im.src=url; }); }
+function seekTo(v,t){ return new Promise((res,rej)=>{ let done=false; const on=()=>{ if(done) return; done=true; v.removeEventListener("seeked",on); clearTimeout(to); res(); }; const to=setTimeout(()=>{ if(!done){ done=true; v.removeEventListener("seeked",on); rej(new Error("seek timeout")); } },10000); v.addEventListener("seeked",on); v.currentTime=Math.abs(v.currentTime-t)<0.01?t+0.02:t; }); }
+function jpegFrom(v,w){ const r=v.videoHeight/v.videoWidth||9/16; const c=document.createElement("canvas"); c.width=w; c.height=Math.round(w*r); c.getContext("2d").drawImage(v,0,0,c.width,c.height); return c.toDataURL("image/jpeg",0.72); }
+async function extractFrames(){
+  const maxImgs=(IMG_LIMITS&&IMG_LIMITS.maxCount)||8;
+  const budget=Math.min(maxImgs,10)*16; // 16 frames per contact sheet
+  const vids=S.sources.filter(s=>(s.kind==="video"||isLink(s))&&canPlay(s)&&!s.error);
+  const imgs=S.sources.filter(s=>s.kind==="image");
+  const kept=[]; // {sourceId,sourceName,t,dataUrl,kind,hash}
+  for(const s of imgs){ const hsh=await imgHash(s.thumb); if(kept.some(k=>ham(k.hash,hsh)<DISTINCT)) continue; kept.push({sourceId:s.id,sourceName:s.name,t:null,dataUrl:s.thumb,kind:"image",hash:hsh}); }
+  const totalDur=vids.reduce((a,v)=>a+(v.duration||0),0)||1;
+  let vi=0;
+  for (const v of vids){
+    vi++;
+    let el; try{ el=await openVideo((await mediaUrl(v)).url); }catch(e){ logIt("Skipped "+v.name+": this browser can't read it."); continue; }
+    const dur=el.duration||v.duration||0; if(!v.duration){ v.duration=dur; }
+    const samples=Math.min(400,Math.max(30,Math.round(dur/1.5)));
+    const step=dur/(samples+1);
+    logIt("Scanning "+v.name+" ("+tc(dur)+") — "+samples+" sample points, keeping only distinct moments…");
+    let last=null, got=0, fails=0;
+    for(let i=1;i<=samples;i++){
+      const t=step*i;
+      try{ await seekTo(el,t); }catch(e){ if(++fails>5){ logIt("  Stopped early — seeking is too slow on this file."); break; } continue; }
+      const hsh=dhash(el);
+      if(last&&ham(last,hsh)<DISTINCT) continue; // same scene as previous sample
+      last=hsh;
+      if(kept.some(k=>ham(k.hash,hsh)<DISTINCT)) continue; // looks like a shot we already have
+      kept.push({sourceId:v.id,sourceName:v.name,t,dataUrl:jpegFrom(el,320),kind:"video",hash:hsh}); got++;
+      if(i%10===0) setProg(0.05+0.45*((vi-1)/vids.length+(i/samples)/vids.length));
+    }
+    logIt("  "+got+" distinct moments found.");
+    URL.revokeObjectURL(el.src);
+  }
+  // Too many? Thin evenly per source so every clip stays represented
+  let chosen=kept;
+  if(kept.length>budget){
+    const bySrc={}; kept.forEach(k=>(bySrc[k.sourceId]=bySrc[k.sourceId]||[]).push(k));
+    const keys=Object.keys(bySrc); chosen=[];
+    keys.forEach(kk=>{ const arr=bySrc[kk]; const share=Math.max(2,Math.round(budget*arr.length/kept.length)); const st=arr.length/share; for(let i=0;i<share&&Math.floor(i*st)<arr.length;i++) chosen.push(arr[Math.floor(i*st)]); });
+    chosen=chosen.slice(0,budget);
+    logIt("Kept the "+chosen.length+" most spread-out of "+kept.length+" distinct moments.");
+  }
+  let n=1; const id=()=>"F"+String(n++).padStart(3,"0");
+  const frames=chosen.map(k=>Object.assign({id:id()},k));
+  const keep=S.frames.filter(f=>f.manual); // M/U/P ids never collide with F ids
+  S.frames=frames.concat(keep);
+  logIt(frames.length+" distinct frames ready for Claude.");
+}
+async function contactSheets(frames){
+  frames=frames.filter(f=>f.dataUrl);
+  const per=16, cols=4, cw=320, ch=180, lh=24, sheets=[];
+  for (let i=0;i<frames.length;i+=per){
+    const group=frames.slice(i,i+per); const rows=Math.ceil(group.length/cols);
+    const c=document.createElement("canvas"); c.width=cols*cw; c.height=rows*(ch+lh); const x=c.getContext("2d");
+    x.fillStyle="#08071A"; x.fillRect(0,0,c.width,c.height);
+    for (let j=0;j<group.length;j++){
+      const f=group[j], cx=(j%cols)*cw, cy=Math.floor(j/cols)*(ch+lh);
+      const img=await new Promise(r=>{ const im=new Image(); im.onload=()=>r(im); im.onerror=()=>r(null); im.src=f.dataUrl; });
+      if (img){ const s=Math.min(cw/img.width,ch/img.height); const w=img.width*s, hh=img.height*s; x.drawImage(img,cx+(cw-w)/2,cy+(ch-hh)/2,w,hh); }
+      x.fillStyle="#373278"; x.fillRect(cx,cy+ch,cw,lh); x.fillStyle="#fff"; x.font="bold 15px Arial"; x.fillText(f.id+"  "+(f.t!=null?tc(f.t):"still")+"  "+f.sourceName.slice(0,22),cx+6,cy+ch+17);
+    }
+    sheets.push(await new Promise(r=>c.toBlob(r,"image/jpeg",0.72)));
+  }
+  return sheets;
+}
+function projectText(){
+  const p=S.project;
+  return ["Game: "+(p.game||"(not given)"),"Cuts to script (separate shot list each): "+cuts().map(t=>cutLabel(t)+" ["+t+(t==="Other"?": "+(p.videoTypeOther||""):"")+"] — target "+(p.durations[t]||"not given")).join("; "),"Platform: "+(p.platform||"(not given)"),"Aspect ratio: "+(p.aspect||"(not given)"),"Max supers per cut: "+(p.supersCap||5),
+    "Required messaging: "+(p.messaging||"(none given)"),"Mandatory items: "+(p.mandatory||"(none given)"),"BRIEF:\n"+(p.brief||"(no brief text)")].join("\n");
+}
+const RULES=`You are a video production tech script assistant helping a professional trailer editor. Produce a practical shot list developers can record from.
+Rules:
+- Interpret the brief first: narrative purpose, key selling points, tone, visual priorities.
+- Every shot needs a reason to exist. Think like a trailer editor: hook, escalation, variety, pacing, a strong opening and ending. Avoid repeating the same kind of gameplay back to back.
+- Descriptions are concise and actionable: what the developer must capture (action, mechanic, environment, framing, key detail). Never vague ("show the player exploring").
+- Never invent mechanics, characters, features, dates, platforms, modes or story. Anything not supported by the brief or visible in the frames goes in needsConfirmation as "Needs confirmation: ...".
+- Structure each cut in SCENES (beats), numbered from 1; shots are numbered within their scene.
+- shotType is one of: ${SHOT_TYPES.join(", ")}. graphics is one of: ${SUPER_TYPES.join(", ")} ("Lower Thirds" = on-screen text cards; never more than the max per cut; the end card is "End-card" and doesn't count). onScreen holds the exact copy when graphics isn't None.
+- sound is one of: ${SOUNDS.join(", ")} with a short soundDescription (music cue, the SFX, or VO line). Only add SFX where it supports the shot.
+- SFX only where they genuinely support the shot; otherwise empty string.
+- Frame references: ONLY use frame IDs shown on the contact sheets. Pick up to 5 options per shot that genuinely show what the description asks for, best first. Options for one shot must be visibly DIFFERENT moments (different angle, area, action or beat) — never two near-identical frames; and avoid reusing the same frame across shots unless it truly fits both. Give a one-sentence reason for each tied to what is visible. If no frame fits, return an empty options list and say what's missing in notes.
+- Music: if no library is connected, give direction, never fake track names.
+- When several cuts are requested (e.g. RDA and Launch), write a separate shot list for each, sized to its own duration. Keep them distinct: an RDA builds anticipation and holds back reveals; a Launch shows the full breadth. Don't spend the later cut's big reveals in the earlier one unless the brief says so.`;
+async function analyse(){
+  if (!SAMPLE){ return; }
+  busy=true; logLines=[]; setProg(0); render();
+  try{
+    logIt("Reading the brief…");
+    await extractFrames(); save();
+    let sheets=[];
+    if (S.frames.length){ logIt("Building "+Math.ceil(S.frames.length/16)+" contact sheet(s) from "+S.frames.length+" frames…"); sheets=await contactSheets(S.frames); }
+    setProg(0.55);
+    const index=S.frames.filter(f=>f.dataUrl).map(f=>f.id+" | "+f.sourceName+" | "+(f.t!=null?tc(f.t):"screenshot")).join("\n");
+    const linked=S.sources.filter(isLink).map(x=>"- "+x.name+" ("+(x.linkType||"link")+")").join("\n");
+    const prompt=RULES+"\n\nPROJECT\n"+projectText()+"\n\nFRAMES (labelled on the contact sheets)\n"+(index||"(no frames — write shots as capture requests with empty options)")+(linked?"\n\nLINKED FOOTAGE (not viewable — names only; the editor will attach frames from these):\n"+linked+"\nDon't guess what these files contain. Leave options empty for shots that depend on them.":"")+
+`\n\nReturn ONLY JSON:
+{"analysis":{"purpose":"","sellingPoints":[""],"tone":"","visualPriorities":[""]},
+ "cuts":[{"cut":"RDA","shots":[{"description":"","purpose":"","options":[{"frame":"F001","reason":""}],"recommended":"F001","scene":1,"shotType":"Full screen","graphics":"None","onScreen":"","sound":"Music","soundDescription":"","notes":"","needsConfirmation":[""]}]}],
+ "music":[{"option":"Option 1","direction":"","mood":"","energy":"","startPoint":"","transitions":"","notes":""}],
+ "missing":["footage the brief needs that the sources don't show"]}
+Give 3 distinct music options. Use exactly these cut names: "+cuts().map(cutLabel).join(", ")+". Shots in trailer order, sized to each cut's target duration.`;
+    logIt("Asking Claude to plan the shots… (this can take a minute)");
+    const out=await SAMPLE.json(prompt,{images:sheets.length?sheets:undefined,modelTier:"complex",onText:()=>setProg(Math.min(0.95,progress+0.01))});
+    const valid=new Set(S.frames.map(f=>f.id));
+    S.analysis=out.analysis||null; S.missing=out.missing||[];
+    const byLabel={}; cuts().forEach(t=>byLabel[cutLabel(t).toLowerCase()]=t);
+    const groups=(out.cuts||[]).length?out.cuts:[{cut:cutLabel(cuts()[0]),shots:out.shots||[]}];
+    S.shots=groups.flatMap((g,gi)=>{ const cut=byLabel[String(g.cut||"").toLowerCase()]||cuts()[Math.min(gi,cuts().length-1)]; return (g.shots||[]).map(s=>{ const opts=distinctOpts((s.options||[]).filter(o=>valid.has(o.frame))).slice(0,5); const rec=valid.has(s.recommended)?s.recommended:(opts[0]&&opts[0].frame)||null;
+      return {id:uid(),desc:s.description||"",purpose:s.purpose||"",edited:false,options:opts,recommended:rec,selected:rec,manual:false,scene:Number(s.scene)||1,shotType:SHOT_TYPES.includes(s.shotType)?s.shotType:"Full screen",superType:SUPER_TYPES.includes(s.graphics)?s.graphics:"None",superText:s.onScreen||"",sound:SOUNDS.includes(s.sound)?s.sound:"None",soundDesc:s.soundDescription||"",notes:s.notes||"",status:rec?"Proposed":"Needs capture",confirm:(s.needsConfirmation||[]).filter(Boolean),cut}; }); });
+    S.activeCut=cuts()[0];
+    S.music=(out.music||[]).map(m=>Object.assign({id:uid()},m));
+    setProg(1); logIt("Done — "+S.shots.length+" shots proposed.");
+    save(); busy=false; go(3);
+  }catch(e){
+    busy=false; logIt("Stopped: "+(e&&e.code==="not_granted"?"Claude access wasn't allowed for this page.":e&&e.code==="rate_limited"?"Too many requests — wait a minute and try again.":(e&&e.message)||"unknown error")); render();
+  }
+}
+function stepAnalyse(){
+  const vids=S.sources.filter(s=>s.kind==="video"||(isLink(s)&&canPlay(s))), usable=vids.filter(s=>canPlay(s)&&!s.error);
+  return [
+    h("h1",null,"Analyse footage against the brief"),
+    h("p",{class:"lede"},"Frames are pulled from each video in your browser and sent to Claude as labelled contact sheets with the brief. You review every suggestion before anything is exported."),
+    h("div",{class:"panel"},
+      h("p",null,S.sources.filter(s=>s.kind==="image").length+" screenshot(s) · "+usable.length+" video(s) ready"+(vids.length>usable.length?" · "+(vids.length-usable.length)+" need re-adding or a proxy":"")),
+      !S.project.brief?h("p",{class:"err"},"There's no brief yet. Add one on the Brief step for useful results."):null,
+      (()=>{ const unread=S.sources.filter(x=>isLink(x)&&/video|drive file/i.test(x.linkType||"")&&!canPlay(x)); return unread.length?h("div",{class:"panel",style:"margin:10px 0;background:var(--lav)"},h("b",null,unread.length+" linked video(s) can't be scanned yet. "),GTOKEN?"These links aren't recognised as Drive videos. Re-add them as Drive file or folder links.":"Sign in with Google so the tool can stream them from Drive.",h("div",{class:"row",style:"margin-top:8px"},GTOKEN?null:h("button",{class:"btn small primary",onclick:()=>signIn(true).then(()=>render())},"Sign in with Google"))):null; })(),
+      !GTOKEN?h("p",{class:"err"},"Sign in with Google (left panel) to run the analysis."):null,
+      S.shots.length?h("p",{class:"note"},"Running again replaces the current "+S.shots.length+" shots. Frames you captured or uploaded by hand are kept."):null,
+      h("div",{class:"row"},
+        S.shots.length?h("button",{class:"btn primary",disabled:busy||!SAMPLE,onclick:()=>fillFrames()},"Keep my shots — auto-select frames"):null,
+        h("button",{class:"btn"+(S.shots.length?"":" primary"),disabled:busy||!SAMPLE,onclick:analyse},busy?"Analysing…":S.shots.length?"Re-plan shots from scratch":"Analyse and suggest shots")),
+      (busy||logLines.length)?h("div",{style:"margin-top:16px;display:flex;flex-direction:column;gap:10px"},h("div",{class:"bar",id:"bar"},h("i",{style:"width:"+Math.round(progress*100)+"%"})),h("div",{class:"log",id:"log"},logLines.join("\n"))):null
+    ),
+    S.analysis?h("div",{class:"panel",style:"margin-top:16px"},h("h2",{style:"margin-top:0"},"How Claude read the brief"),
+      h("p",null,h("b",null,"Purpose: "),S.analysis.purpose||""),
+      h("p",null,h("b",null,"Tone: "),S.analysis.tone||""),
+      h("p",null,h("b",null,"Selling points: "),(S.analysis.sellingPoints||[]).join(" · ")),
+      h("p",null,h("b",null,"Visual priorities: "),(S.analysis.visualPriorities||[]).join(" · "))):null,
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(1)},"Back"),h("button",{class:"btn primary",disabled:!S.shots.length,onclick:()=>go(3)},"Review shots"))
+  ];
+}
+
+function distinctOpts(opts,existing){ const out=[]; const hs=(existing||[]).map(o=>{ const f=S.frames.find(x=>x.id===o.frame); return f&&f.hash; });
+  for(const o of opts){ const f=S.frames.find(x=>x.id===o.frame); const hh=f&&f.hash; if(hh&&hs.some(x=>ham(x,hh)<DISTINCT)) continue; if(out.some(x=>x.frame===o.frame)) continue; out.push(o); hs.push(hh); } return out; }
+/* Keep the shots, auto-pick frames for them from the connected footage */
+let filling=false;
+async function fillFrames(opts={}){
+  if(filling) return; if(!SAMPLE){ alert("Claude isn't available in this view."); return; }
+  if(!S.shots.length){ alert("There are no shots yet. Run the analysis first."); return; }
+  filling=true; logLines=[]; setProg(0);
+  const log=h("div",{class:"log",id:"log"}), bar=h("div",{class:"bar",id:"bar"},h("i",{style:"width:0%"}));
+  openDialog("Auto-selecting frames",[h("p",{class:"note"},"Scanning your footage for distinct moments, then matching them to every shot. Your own picks are kept."),bar,h("div",{style:"height:10px"}),log]);
+  try{
+    if(opts.rescan!==false||!S.frames.some(f=>!f.manual)) await extractFrames();
+    const usable=S.frames.filter(f=>f.dataUrl);
+    if(!usable.length) throw new Error("No readable footage. Connect your footage folder first (Google Drive for desktop), or add clips.");
+    logIt("Building contact sheets…"); const sheets=await contactSheets(usable); setProg(0.6);
+    const keyOf=x=>cutLabel(x.cut)+"-"+pad(shotsOf(x.cut).indexOf(x)+1);
+    const targets=S.shots.filter(x=>!(x.manual&&x.selected));
+    const index=usable.map(f=>f.id+" | "+f.sourceName+" | "+(f.t!=null?tc(f.t):"screenshot")).join("\n");
+    logIt("Matching "+targets.length+" shots to "+usable.length+" frames…");
+    const out=await SAMPLE.json(RULES+"\n\nPROJECT\n"+projectText()+"\n\nFRAMES (labelled on the contact sheets)\n"+index+
+      "\n\nSHOTS\n"+targets.map(x=>keyOf(x)+": "+x.desc).join("\n")+
+      '\n\nFor EVERY shot pick up to 5 frames that best show it, best first, each a visibly different moment. If nothing fits, return an empty list for that shot. Return ONLY JSON: {"shots":[{"key":"RDA-01","options":[{"frame":"F001","reason":""}]}]}',
+      {images:sheets,modelTier:"complex",cache:false,onText:()=>setProg(Math.min(0.97,progress+0.01))});
+    const valid=new Set(usable.map(f=>f.id)); const map={}; (out.shots||[]).forEach(r=>map[String(r.key||"").toLowerCase()]=r.options||[]);
+    let filled=0, empty=[];
+    targets.forEach(x=>{ const o=distinctOpts((map[keyOf(x).toLowerCase()]||[]).filter(o=>valid.has(o.frame))).slice(0,5);
+      x.options=o; x.recommended=o[0]?o[0].frame:null; x.selected=x.recommended; x.manual=false; x.status=o.length?"Proposed":"Needs capture";
+      if(o.length) filled++; else empty.push(keyOf(x)); });
+    save(); setProg(1);
+    logIt("Done: frames picked for "+filled+" of "+targets.length+" shots."+(empty.length?"\nNothing in the footage fits: "+empty.join(", ")+" — these need new capture from the devs.":""));
+  }catch(e){ logIt("Stopped: "+((e&&e.message)||"unknown error")); }
+  filling=false; render();
+}
+/* ---------- step 4: review ---------- */
+const frameById=id=>S.frames.find(f=>f.id===id);
+function supersUsed(c){ return S.shots.filter(x=>c==null||x.cut===c).filter(s=>s.superType==="Lower Thirds").length; }
+function frameBtn(f,shot,label){
+  const sel=shot.selected===f.id;
+  return h("button",{class:"fr","aria-pressed":sel?"true":"false",title:f.sourceName+(f.t!=null?" @ "+tc(f.t):""),onclick:()=>{ shot.selected=f.id; shot.manual=true; if(shot.status==="Needs capture"||shot.status==="No screenshot") shot.status="Proposed"; save(); render(); }},
+    f.dataUrl?h("img",{src:f.dataUrl,alt:"Frame "+f.id}):h("div",{style:"aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:12px;color:#A9A5D6;padding:8px;text-align:center"},"Timestamp reference"), h("span",{class:"tc"},f.t!=null?tc(f.t):"still"), label?h("span",{class:"opt"},label):null,
+    shot.recommended===f.id?h("span",{class:"rec"},"Recommended"):null, h("span",{class:"cap"},f.id+" · "+f.sourceName));
+}
+function shotCard(s,i,list){
+  const optFrames=s.options.map(o=>frameById(o.frame)).filter(Boolean);
+  const extra=s.selected&&s.selected!=="none"&&!s.options.some(o=>o.frame===s.selected)?frameById(s.selected):null;
+  const selOpt=s.options.find(o=>o.frame===s.selected);
+  const desc=h("textarea",{rows:3,oninput:e=>{s.desc=e.target.value; s.edited=true; save();}}); desc.value=s.desc;
+  const notes=h("textarea",{rows:2,oninput:e=>{s.notes=e.target.value; save();}}); notes.value=s.notes;
+  const move=(d)=>{ const o=list[i+d]; if(!o) return; const a=S.shots.indexOf(s), b=S.shots.indexOf(o); [S.shots[a],S.shots[b]]=[S.shots[b],S.shots[a]]; save(); render(); };
+  return h("article",{class:"shot","aria-label":"Shot "+pad(i+1)},
+    h("div",{class:"num"},pad(i+1),h("button",{onclick:()=>move(-1),"aria-label":"Move up",disabled:i===0},"▲"),h("button",{onclick:()=>move(1),"aria-label":"Move down",disabled:i===list.length-1},"▼"),h("button",{onclick:()=>{ if(confirm("Delete shot "+pad(i+1)+"?")){ S.shots.splice(S.shots.indexOf(s),1); save(); render(); } },"aria-label":"Delete shot"},"✕")),
+    h("div",{class:"body"},
+      h("label",{class:"f"},"Brief / description — what devs need to record",desc),
+      s.purpose?h("div",{class:"purpose"},"Why it's here: "+s.purpose):null,
+      h("div",{class:"strip"},
+        s.selected==="none"?h("div",{class:"empty"},"Marked as no screenshot needed."):
+        (optFrames.length||extra)?h("div",{class:"frames"},optFrames.map((f,k)=>frameBtn(f,s,"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[k]||String(k+1))),extra?frameBtn(extra,s,"Manual"):null):h("div",{class:"empty"},"No matching frame in the sources. This shot needs new capture.")),
+      selOpt&&selOpt.reason?h("div",{class:"reason"},(s.manual?"Your pick. ":"Recommended: ")+selOpt.reason):s.manual&&s.selected&&s.selected!=="none"?h("div",{class:"manual"},"Your pick — kept as chosen."):null,
+      h("div",{class:"row"},
+        h("button",{class:"btn small",onclick:()=>pickFrame(s)},"Choose from all frames"),
+        h("button",{class:"btn small",onclick:()=>pasteFor(s)},"Capture from source"),
+        h("button",{class:"btn small",onclick:()=>captureAt(s)},"Capture in workspace"),
+        h("button",{class:"btn small",onclick:()=>uploadFor(s)},"Upload screenshot"),
+        h("button",{class:"btn small",onclick:()=>{ s.selected="none"; s.manual=true; s.status="No screenshot"; save(); render(); }},"No screenshot needed"),
+        h("button",{class:"btn small",disabled:!SAMPLE||!S.frames.length,onclick:e=>moreOptions(s,e.currentTarget)},"More options")),
+      h("div",{class:"cols3"},
+        h("label",{class:"f"},"Scene",h("input",{type:"number",min:1,value:s.scene||1,oninput:e=>{s.scene=Number(e.target.value)||1; save();}})),
+        h("label",{class:"f"},"Shot type",h("select",{onchange:e=>{s.shotType=e.target.value; save();}},SHOT_TYPES.map(t=>h("option",{value:t,selected:s.shotType===t},t)))),
+        h("label",{class:"f"},"Status",h("select",{onchange:e=>{s.status=e.target.value; save();}},STATUSES.map(t=>h("option",{value:t,selected:s.status===t},t))))),
+      h("div",{class:"cols3"},
+        h("label",{class:"f"},"Graphics",h("select",{onchange:e=>{s.superType=e.target.value; save(); render();}},SUPER_TYPES.map(t=>h("option",{value:t,selected:s.superType===t},t)))),
+        h("label",{class:"f",style:"grid-column:span 2"},"On-screen text",h("input",{type:"text",value:s.superText||"",disabled:s.superType==="None",placeholder:"Exact copy for the card",oninput:e=>{s.superText=e.target.value; save();}}))),
+      h("div",{class:"cols3"},
+        h("label",{class:"f"},"Sound",h("select",{onchange:e=>{s.sound=e.target.value; save();}},SOUNDS.map(t=>h("option",{value:t,selected:s.sound===t},t)))),
+        h("label",{class:"f",style:"grid-column:span 2"},"Sound description",h("input",{type:"text",value:s.soundDesc||"",placeholder:"Music cue, SFX or VO line",oninput:e=>{s.soundDesc=e.target.value; save();}}))),
+      h("label",{class:"f"},"Notes",notes),
+      s.confirm.length?h("div",{class:"chips"},s.confirm.map(c=>h("span",{class:"chip"},c))):null
+    ));
+}
+function updateCounter(){ const c=$("#supCount"); if(!c) return; const n=supersUsed(activeCut()), cap=Number(S.project.supersCap)||5; c.textContent=cutLabel(activeCut())+" lower thirds "+n+" / "+cap; c.classList.toggle("over",n>cap); }
+function pickFrame(s){
+  if(!S.frames.length){ openDialog("Choose a frame",h("p",null,"No frames yet. Run the analysis or capture one at a timestamp.")); return; }
+  openDialog("Choose a frame for "+cutLabel(s.cut)+" shot "+pad(shotsOf(s.cut).indexOf(s)+1),h("div",{class:"allframes"},S.frames.map(f=>{ const b=frameBtn(f,s,null); b.addEventListener("click",()=>$("#dlg").close()); return b; })));
+}
+function addCaptured(s,frame,label){
+  S.frames.push(frame);
+  s.options=(s.options||[]).filter(o=>o.frame!==frame.id);
+  s.options.push({frame:frame.id,reason:label});
+  if(!s.selected||s.selected==="none"){ s.selected=frame.id; }
+  s.status="Proposed"; save();
+}
+function pasteFor(s){ captureDialog(s); }
+function captureDialog(s, preferId){
+  const FPS=30;
+  const all=S.sources.filter(x=>x.kind==="video"||isLink(x));
+  if(!all.length){ openDialog("Capture from source",h("p",null,"Add or link footage on the Sources step first.")); return; }
+  const sel=h("select",{style:"max-width:420px"},all.map(x=>h("option",{value:x.id},(canPlay(x)?"▶ ":"⧉ ")+x.name+(canPlay(x)?"":" — sign in to preview"))));
+  const first=(preferId&&all.find(x=>x.id===preferId))||all.find(x=>canPlay(x))||all[0]; sel.value=first.id;
+  const stage=h("div");
+  const optsBox=h("div",{class:"strip",style:"margin-top:12px"});
+  const msg=h("p",{class:"note"});
+  let url=null;
+  const drawOpts=()=>{ const fr=(s.options||[]).map(o=>frameById(o.frame)).filter(Boolean);
+    optsBox.replaceChildren(fr.length?h("div",{class:"frames"},fr.map((f,k)=>{ const b=frameBtn(f,s,"ABCDEFGHIJKLMNOPQRSTUVWXYZ"[k]||String(k+1)); b.addEventListener("click",()=>setTimeout(drawOpts)); return b; })):h("div",{class:"empty"},"No options yet for this shot. Captures you add appear here.")); };
+  const show=async()=>{
+    if(url){ URL.revokeObjectURL(url); url=null; }
+    const x=all.find(y=>y.id===sel.value);
+    if(canPlay(x)){
+      const v=h("video",{controls:true,playsinline:true,muted:true,preload:"auto",style:"width:100%;max-height:56vh;background:#08071A;border-radius:6px"});
+      const time=h("span",{class:"counter"},"00:00");
+      try{ const m=await mediaUrl(x); v.src=m.url; if(m.blob) url=m.url; }catch(e){ msg.textContent=(e&&e.message)||"Couldn't load the video."; msg.className="err"; }
+      v.addEventListener("timeupdate",()=>{ time.textContent=tc(v.currentTime)+"."+pad(Math.floor((v.currentTime%1)*FPS)); });
+      v.addEventListener("error",()=>{ msg.textContent="This browser can't play this file (often ProRes/HEVC). Try another clip or an H.264 proxy."; msg.className="err"; });
+      const stepF=d=>{ v.pause(); v.currentTime=Math.max(0,Math.min(v.duration||0,v.currentTime+d)); };
+      const grabIt=()=>{
+        if(v.readyState<2){ msg.textContent="The video hasn't loaded a frame yet."; msg.className="err"; return; }
+        v.pause(); const w=640,r=(v.videoHeight/v.videoWidth)||9/16; const c=document.createElement("canvas"); c.width=w; c.height=Math.round(w*r);
+        c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+        const id="M"+uid().slice(0,4).toUpperCase();
+        addCaptured(s,{id,sourceId:x.id,sourceName:x.name,t:v.currentTime,dataUrl:c.toDataURL("image/jpeg",0.82),kind:"video",manual:true},"Captured by you at "+tc(v.currentTime));
+        msg.textContent="Added as option "+("ABCDEFGHIJKLMNOPQRSTUVWXYZ"[s.options.length-1]||s.options.length)+" at "+tc(v.currentTime)+". Keep scrubbing to add more."; msg.className="okc"; drawOpts();
+      };
+      stage.replaceChildren(v,
+        h("div",{class:"row",style:"margin-top:8px"},time,h("button",{class:"btn small",onclick:()=>stepF(-1/FPS)},"◀ frame"),h("button",{class:"btn small",onclick:()=>stepF(1/FPS)},"frame ▶"),
+          h("button",{class:"btn small",onclick:()=>stepF(-5)},"−5s"),h("button",{class:"btn small",onclick:()=>stepF(5)},"+5s"),h("span",{class:"spacer"}),
+          h("button",{class:"btn primary",onclick:grabIt},"Add this frame as an option (C)")),
+        h("p",{class:"note"},"Space play/pause · ← → 1s · , . one frame · C add frame"));
+      stage._grab=grabIt; stage._v=v;
+    } else {
+      stage._grab=null; stage._v=null;
+      stage.replaceChildren(h("div",{class:"panel",style:"background:var(--lav)"},
+        h("b",null,"No preview yet for "+x.name),
+        h("p",null,GTOKEN?"This link isn't a Drive video the tool can stream. Re-add it as a Drive file or folder link, or connect a local folder.":"Sign in with Google to stream this clip straight from Drive."),
+        h("div",{class:"row"},GTOKEN?null:h("button",{class:"btn primary",onclick:()=>signIn(true).then(()=>{ fillSel(); show(); })},"Sign in with Google"),h("button",{class:"btn primary",onclick:()=>folderInput(r=>{ fillSel(); show(); msg.textContent=r.total?("Connected "+r.total+" video(s), "+r.matched+" matched."):"No videos found in that folder."; msg.className=r.total?"okc":"err"; })},"Connect footage folder"),
+          linkUrl(x)?h("a",{class:"btn",href:linkUrl(x),target:"_blank",rel:"noopener"},"Open in Drive"):null),
+        h("p",{class:"note"},"Tip: pick the folder itself in Finder → Google Drive → My Drive (or Shared drives). The connection lasts until you reload the page.")));
+    }
+  };
+  const fillSel=()=>{ const cur=sel.value; sel.replaceChildren(...all.map(x=>h("option",{value:x.id},(canPlay(x)?"▶ ":"⧉ ")+x.name+(canPlay(x)?"":" — sign in to preview")))); sel.value=cur; };
+  sel.addEventListener("change",show);
+  const onKey=e=>{ if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement&&document.activeElement.tagName)) return; const v=stage._v; if(!v) return;
+    if(e.key===" "){ e.preventDefault(); v.paused?v.play():v.pause(); } else if(e.key==="ArrowLeft"){ e.preventDefault(); v.currentTime=Math.max(0,v.currentTime-(e.shiftKey?5:1)); } else if(e.key==="ArrowRight"){ e.preventDefault(); v.currentTime=v.currentTime+(e.shiftKey?5:1); }
+    else if(e.key===","){ v.pause(); v.currentTime=Math.max(0,v.currentTime-1/FPS); } else if(e.key==="."){ v.pause(); v.currentTime+=1/FPS; } else if(e.key==="c"||e.key==="C"){ e.preventDefault(); stage._grab&&stage._grab(); } };
+  const n=shotsOf(s.cut).indexOf(s)+1;
+  openDialog("Capture from source — "+cutLabel(s.cut)+" shot "+pad(n),[
+    h("p",{class:"note",style:"margin-top:0"},s.desc||""),
+    h("label",{class:"f"},"Source",sel), h("div",{style:"margin-top:10px"},stage), msg,
+    h("b",null,"Options for this shot"), optsBox,
+    h("div",{class:"row",style:"margin-top:12px"},h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:()=>$("#dlg").close()},"Done"))]);
+  document.addEventListener("keydown",onKey);
+  $("#dlg").addEventListener("close",()=>{ document.removeEventListener("keydown",onKey); if(url) URL.revokeObjectURL(url); render(); },{once:true});
+  show(); drawOpts();
+}
+function captureAt(s){ openWorkspace(s); }
+function openWorkspace(startShot){
+  const dlg=$("#dlg"); if(dlg.open) dlg.close(); dlg.classList.add("ws");
+  const cutsL=cuts(); let cut=startShot?startShot.cut:activeCut();
+  let cur=startShot||shotsOf(cut)[0]||null;
+  let url=null, stream=null, srcId=null;
+  const FPS=30;
+  const player=h("video",{controls:true,playsinline:true,muted:true,preload:"auto"});
+  const tcEl=h("span",{class:"tcbig"},"00:00");
+  const msg=h("p",{class:"note"});
+  const srcSel=h("select",{style:"max-width:340px"});
+  const shotsBox=h("div",{class:"shots"});
+  const cutSel=cutsL.length>1?h("select",{onchange:e=>{ cut=e.target.value; cur=shotsOf(cut)[0]||null; drawShots(); }},cutsL.map(c=>h("option",{value:c,selected:c===cut},cutLabel(c)))):null;
+  const fillSources=()=>{ const ps=playable(); const ls=S.sources.filter(x=>isLink(x)&&!canPlay(x));
+    srcSel.replaceChildren(ps.length?h("optgroup",{label:"Preview here"},ps.map(x=>h("option",{value:x.id},x.name))):"", ls.length?h("optgroup",{label:"Linked — open in Drive, paste screenshots"},ls.map(x=>h("option",{value:"L:"+x.id},x.name))):"");
+    const all=[...ps.map(x=>x.id),...ls.map(x=>"L:"+x.id)];
+    if(srcId&&all.includes(srcId)) srcSel.value=srcId; else if(all[0]) srcSel.value=all[0]; };
+  const stopShare=()=>{};
+  const openBtn=h("a",{class:"btn primary",target:"_blank",rel:"noopener"},"Open in Drive");
+  const lastPaste=h("div",{class:"note"},"Nothing pasted yet.");
+  const pasteStage=h("div",{class:"hidden panel",style:"flex:1;display:flex;flex-direction:column;gap:12px;justify-content:center;align-items:flex-start"},
+    h("b",{style:"font-size:16px"},"Capture from Drive with paste"),
+    h("ol",{style:"margin:0;padding-left:20px;line-height:1.7"},h("li",null,"Open the clip in Drive (side by side with this window works best)."),h("li",null,"Pause on the moment and type its time in the time box below (optional)."),h("li",null,"Screenshot it to your clipboard — ⌘⇧⌃4 on Mac, Win+Shift+S on Windows."),h("li",null,"Come back here and press ⌘V / Ctrl+V. It goes into the selected shot and jumps to the next one.")),
+    openBtn,lastPaste);
+  const loadSrc=async()=>{
+    const v=srcSel.value; stopShare(); if(url){ URL.revokeObjectURL(url); url=null; } player.removeAttribute("src");
+    if(!v){ srcId=null; return; }
+    if(v.startsWith("L:")){
+      const x=S.sources.find(y=>y.id===v.slice(2)); srcId=x?x.id:null; player.classList.add("hidden"); pasteStage.classList.remove("hidden");
+      openBtn.href=x?linkWithTime(x,parseTc(manualT.value)):"#"; msg.textContent=""; return;
+    }
+    player.classList.remove("hidden"); pasteStage.classList.add("hidden");
+    srcId=v; player.controls=true; msg.textContent="Loading…"; msg.className="note";
+    try{ const m=await mediaUrl(S.sources.find(y=>y.id===v)); player.src=m.url; if(m.blob) url=m.url; }catch(e){ msg.textContent=(e&&e.message)||"Couldn't load the video."; msg.className="err"; }
+  };
+  player.addEventListener("loadeddata",()=>{ { msg.textContent=""; const x=S.sources.find(y=>y.id===srcId); if(x&&!x.duration){ x.duration=player.duration; save(); } } });
+  player.addEventListener("error",()=>{ if(!player.getAttribute("src")) return; msg.textContent="This browser can't play this file (often ProRes or HEVC). Use an H.264 proxy, or pick its linked Drive version in the list and use paste."; msg.className="err"; });
+  player.addEventListener("timeupdate",()=>{ tcEl.textContent=tc(player.currentTime)+"."+pad(Math.floor((player.currentTime%1)*FPS)); });
+  srcSel.addEventListener("change",loadSrc);
+  const manualT=h("input",{type:"text",placeholder:"source time mm:ss",style:"max-width:150px",oninput:()=>{ const x=S.sources.find(y=>y.id===srcId); if(x&&isLink(x)) openBtn.href=linkWithTime(x,parseTc(manualT.value)); }});
+  const capture=()=>{
+    if(!cur){ msg.textContent="Pick a shot on the right first."; msg.className="err"; return; }
+    if(player.readyState<2){ msg.textContent="No frame to capture yet."; msg.className="err"; return; }
+    player.pause();
+    const w=640, r=(player.videoHeight/player.videoWidth)||9/16; const c=document.createElement("canvas"); c.width=w; c.height=Math.round(w*r);
+    try{ c.getContext("2d").drawImage(player,0,0,c.width,c.height); }catch(e){ msg.textContent="Couldn't read that frame."; msg.className="err"; return; }
+    const src=S.sources.find(x=>x.id===srcId);
+    const t=player.currentTime;
+    const id="M"+uid().slice(0,4).toUpperCase();
+    addCaptured(cur,{id,sourceId:src?src.id:null,sourceName:src?src.name:"Clip",t:t==null?null:t,dataUrl:c.toDataURL("image/jpeg",0.82),kind:"video",manual:true},"Captured by you at "+tc(t));
+    cur.selected=id;
+    const list=shotsOf(cut), i=list.indexOf(cur);
+    msg.textContent="Captured for shot "+pad(i+1)+(t!=null?" at "+tc(t):"")+"."; msg.className="okc";
+    if(autoNext.checked&&list[i+1]) cur=list[i+1];
+    drawShots();
+  };
+  const autoNext=h("input",{type:"checkbox",checked:true});
+  const onPaste=async e=>{
+    const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(i=>i.type.startsWith("image/"));
+    if(!it) return; e.preventDefault();
+    if(!cur){ msg.textContent="Pick a shot on the right first."; msg.className="err"; return; }
+    const d=await fileToThumb(it.getAsFile(),640); const src=S.sources.find(x=>x.id===srcId); const t=parseTc(manualT.value);
+    const id="P"+uid().slice(0,4).toUpperCase();
+    addCaptured(cur,{id,sourceId:src?src.id:null,sourceName:src?src.name:"Pasted screenshot",t:manualT.value.trim()&&t!=null?t:null,dataUrl:d,kind:"paste",manual:true},"Pasted by you"+(manualT.value.trim()?" at "+manualT.value.trim():""));
+    cur.selected=id;
+    const list=shotsOf(cut), i=list.indexOf(cur);
+    lastPaste.replaceChildren(h("img",{src:d,alt:"",style:"max-width:280px;border-radius:6px"}));
+    msg.textContent="Pasted into shot "+pad(i+1)+(manualT.value.trim()?" at "+manualT.value.trim():"")+"."; msg.className="okc"; manualT.value="";
+    if(autoNext.checked&&list[i+1]) cur=list[i+1];
+    drawShots();
+  };
+  function drawShots(){
+    const list=shotsOf(cut);
+    shotsBox.replaceChildren(...list.map((x,i)=>{ const f=x.selected&&x.selected!=="none"?frameById(x.selected):null;
+      const b=h("button",{class:"sh","aria-current":x===cur?"true":"false",onclick:()=>{ cur=x; drawShots(); }},
+        h("span",{class:"no"},pad(i+1)), h("span",{class:"im"},f&&f.dataUrl?h("img",{src:f.dataUrl,alt:""}):(x.selected==="none"?"none":"empty")), h("span",{class:"tx"},x.desc||"(no description)"));
+      return b; }));
+    const a=shotsBox.querySelector('[aria-current="true"]'); if(a) a.scrollIntoView({block:"nearest"});
+  }
+  const step=d=>{ if(player.classList.contains("hidden")) return; player.pause(); player.currentTime=Math.max(0,Math.min((player.duration||0),player.currentTime+d)); };
+  const onKey=e=>{
+    if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement&&document.activeElement.tagName)) return;
+    const k=e.key;
+    if(k===" "){ e.preventDefault(); if(player.classList.contains("hidden")) return; player.paused?player.play():player.pause(); }
+    else if(k==="ArrowLeft"){ e.preventDefault(); step(e.shiftKey?-5:-1); }
+    else if(k==="ArrowRight"){ e.preventDefault(); step(e.shiftKey?5:1); }
+    else if(k===","){ step(-1/FPS); } else if(k==="."){ step(1/FPS); }
+    else if(k==="c"||k==="C"){ e.preventDefault(); capture(); }
+    else if(k==="]"||k==="ArrowDown"){ e.preventDefault(); const l=shotsOf(cut), i=l.indexOf(cur); if(l[i+1]){ cur=l[i+1]; drawShots(); } }
+    else if(k==="["||k==="ArrowUp"){ e.preventDefault(); const l=shotsOf(cut), i=l.indexOf(cur); if(i>0){ cur=l[i-1]; drawShots(); } }
+  };
+  const connect=h("button",{class:"btn small",onclick:()=>folderInput(r=>{ fillSources(); loadSrc(); msg.textContent=r.total?("Connected "+r.total+" video(s)."):"No videos in that folder."; msg.className=r.total?"okc":"err"; })},"Connect footage folder");
+  const addFile=h("button",{class:"btn small",onclick:()=>fileInput(r=>{ fillSources(); loadSrc(); })},"Add clip");
+  $("#dlgTitle").textContent="Capture workspace";
+  $("#dlgBody").replaceChildren(
+    h("div",{class:"stage"},
+      h("div",{class:"row"},srcSel,connect,addFile,h("span",{class:"spacer"}),tcEl),
+      player,pasteStage,
+      h("div",{class:"row"},h("button",{class:"btn small",onclick:()=>step(-1/FPS),title:"Back one frame"},"◀ frame"),h("button",{class:"btn small",onclick:()=>step(1/FPS),title:"Forward one frame"},"frame ▶"),
+        h("button",{class:"btn primary",onclick:capture},"Capture to shot (C)"),h("label",{class:"row",style:"font-size:13px"},autoNext,"Jump to next shot"),manualT),
+      h("div",{class:"keys"},h("b",null,"Space")," play/pause ",h("b",null,"←")," ",h("b",null,"→")," 1s (",h("b",null,"Shift")," 5s) ",h("b",null,",")," ",h("b",null,".")," one frame ",h("b",null,"C")," capture ",h("b",null,"⌘V")," paste screenshot ",h("b",null,"["),"/",h("b",null,"]")," previous/next shot"),
+      msg),
+    h("div",{style:"display:flex;flex-direction:column;gap:8px;min-height:0"},cutSel?h("label",{class:"f"},"Cut",cutSel):null,h("b",null,"Shots — click one, then capture"),shotsBox));
+  const onClose=()=>{ if(url) URL.revokeObjectURL(url); document.removeEventListener("keydown",onKey); document.removeEventListener("paste",onPaste); dlg.classList.remove("ws"); render(); };
+  dlg.addEventListener("close",onClose,{once:true});
+  document.addEventListener("keydown",onKey); document.addEventListener("paste",onPaste);
+  dlg.showModal();
+  fillSources(); drawShots();
+  if(srcSel.value) loadSrc(); else { msg.textContent="No footage yet. Connect your footage folder (with Google Drive for desktop, clips stream as you scrub) or add Drive links on the Sources step."; msg.className="note"; }
+}
+async function moreOptions(s,btn){
+  btn.disabled=true; btn.textContent="Looking…";
+  try{
+    const sheets=await contactSheets(S.frames);
+    const have=s.options.map(o=>o.frame);
+    const index=S.frames.filter(f=>f.dataUrl).map(f=>f.id+" | "+f.sourceName+" | "+(f.t!=null?tc(f.t):"screenshot")).join("\n");
+    const out=await SAMPLE.json(RULES+"\n\nPROJECT\n"+projectText()+"\n\nFRAMES\n"+index+"\n\nSHOT: "+s.desc+"\nAlready offered (exclude): "+(have.join(", ")||"none")+
+      '\nSuggest up to 5 NEW frames that best show this shot, each a visibly different moment from the others and from the ones already offered. Return ONLY JSON: {"options":[{"frame":"F001","reason":""}]}',{images:sheets,modelTier:"default",cache:false});
+    const valid=new Set(S.frames.map(f=>f.id));
+    const add=distinctOpts((out.options||[]).filter(o=>valid.has(o.frame)&&!have.includes(o.frame)),s.options);
+    s.options=s.options.concat(add).slice(0,10);
+    if(!add.length) alert("No other frames in the sources fit this shot.");
+    save();
+  }catch(e){ alert("Couldn't get more options: "+((e&&e.message)||"unknown error")); }
+  render();
+}
+function stepReview(){
+  if(!S.shots.length) return [h("h1",null,"Review shots"),h("p",{class:"lede"},"Run the analysis first, or add shots by hand."),h("button",{class:"btn primary",onclick:addShot},"Add a shot")];
+  const ac=activeCut(), list=shotsOf(ac), n=supersUsed(ac), cap=Number(S.project.supersCap)||5;
+  return [
+    h("h1",null,"Review shots"),
+    h("p",{class:"lede"},"Accept, swap or replace each frame. Your picks and wording always win — re-running suggestions never overwrites them."),
+    cuts().length>1?h("div",{class:"row",role:"tablist",style:"margin-bottom:6px"},cuts().map(t=>h("button",{class:"btn"+(t===ac?" primary":""),role:"tab","aria-selected":t===ac?"true":"false",onclick:()=>{S.activeCut=t; save(); render();}},cutLabel(t)+" · "+shotsOf(t).length))):null,
+    h("div",{class:"toolbar row"},h("span",{class:"counter",id:"supCount"},cutLabel(ac)+" lower thirds "+n+" / "+cap),h("span",{class:"counter"},list.length+" shots"+(S.project.durations[ac]?" · "+S.project.durations[ac]:"")),h("span",{class:"spacer"}),h("button",{class:"btn small primary",disabled:!SAMPLE,onclick:()=>fillFrames()},"Auto-select frames for all shots"),h("button",{class:"btn small",onclick:()=>openWorkspace(null)},"Open capture workspace"),h("button",{class:"btn small",onclick:addShot},"Add a shot"),h("button",{class:"btn small primary",onclick:()=>go(4)},"Continue to music")),
+    S.missing.length?h("div",{class:"panel",style:"margin-top:12px"},h("b",null,"Footage the brief needs that the sources don't show"),h("ul",null,S.missing.map(m=>h("li",null,m)))):null,
+    list.length?list.map((x,i)=>shotCard(x,i,list)):h("p",{class:"note"},"No shots in this cut yet.")
+  ];
+}
+function addShot(){ S.shots.push({cut:activeCut(),id:uid(),desc:"",purpose:"",edited:true,options:[],recommended:null,selected:null,manual:false,scene:(shotsOf(activeCut()).slice(-1)[0]||{}).scene||1,shotType:"Full screen",sound:"None",soundDesc:"",superType:"None",superText:"",sfx:"",notes:"",status:"Needs capture",confirm:[]}); save(); if(S.step!==3) go(3); else render(); }
+
+/* ---------- step 5: music ---------- */
+async function regenMusic(btn){
+  btn.disabled=true; btn.textContent="Thinking…";
+  try{
+    const out=await SAMPLE.json(RULES+"\n\nPROJECT\n"+projectText()+"\n\nSHOTS\n"+cuts().map(c=>cutLabel(c)+":\n"+shotsOf(c).map((s,i)=>pad(i+1)+". "+s.desc).join("\n")).join("\n")+
+      '\n\nGive 3 distinct music directions for this cut (no invented track names). Return ONLY JSON: {"music":[{"option":"Option 1","direction":"","mood":"","energy":"","startPoint":"","transitions":"","notes":""}]}',{modelTier:"default",cache:false});
+    S.music=(out.music||[]).map(m=>Object.assign({id:uid()},m)); save();
+  }catch(e){ alert("Couldn't get music options: "+((e&&e.message)||"unknown error")); }
+  render();
+}
+const envatoUrl=terms=>"https://elements.envato.com/audio/royalty-free-music/"+encodeURIComponent(String(terms||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""));
+let findingTracks=false, trackMsg="";
+async function driveAudio(keywords){
+  const seen=new Map(); const add=fs=>(fs||[]).forEach(f=>{ if(/^audio\//.test(f.mimeType||"")&&!seen.has(f.id)) seen.set(f.id,f); });
+  const q=k=>"mimeType contains 'audio/'"+(k?" and title contains '"+String(k).replace(/'/g,"\\'")+"'":"");
+  for(const k of keywords.slice(0,8)){ try{ const p=await drive("search_files",{query:q(k)}); add(p&&p.files); }catch(e){ if(e&&e.code!=="tool_error") throw e; } }
+  try{ const p=await drive("search_files",{query:q("")}); add(p&&p.files); }catch(e){}
+  return [...seen.values()].slice(0,80);
+}
+async function findTracks(){
+  if(findingTracks) return; findingTracks=true; trackMsg="Working out what to search for…"; render();
+  try{
+    const ctx=RULES+"\n\nPROJECT\n"+projectText()+"\n\nSHOTS\n"+cuts().map(c=>cutLabel(c)+":\n"+shotsOf(c).map((x,i)=>pad(i+1)+". "+x.desc).join("\n")).join("\n")+
+      (S.music.length?"\n\nMUSIC DIRECTIONS SO FAR\n"+S.music.map(m=>(m.option||"")+": "+(m.direction||"")+" / "+(m.mood||"")+" / "+(m.energy||"")).join("\n"):"");
+    const kw=await SAMPLE.json(ctx+'\n\nGive search terms to find music for this cut. Return ONLY JSON: {"driveKeywords":["single words likely in audio FILE NAMES, e.g. chiptune, trailer, epic, arcade, 8bit"],"envato":[{"label":"short name","terms":"2-4 word Envato Elements music search","mood":"","energy":"","why":""}]} with 6-8 driveKeywords and 3 envato searches.',{modelTier:"quick",cache:false});
+    let picks=[], cands=[];
+    if(MCP){
+      trackMsg="Searching Google Drive for audio…"; render();
+      try{ cands=await driveAudio(kw.driveKeywords||[]); }catch(e){ trackMsg="Drive search failed: "+mcpErr(e); }
+      if(cands.length){
+        trackMsg="Picking the best Drive tracks from "+cands.length+" audio files…"; render();
+        const list=cands.map((f,i)=>"D"+(i+1)+" | "+f.title+" | "+(f.mimeType||"")+" | "+(f.fileSize?(Number(f.fileSize)/1e6).toFixed(1)+" MB":"")+" | folder "+(f.parentId||"")).join("\n");
+        const r=await SAMPLE.json(ctx+"\n\nAUDIO FILES IN THE EDITOR'S GOOGLE DRIVE (you can only see names, not hear them)\n"+list+
+          '\n\nPick the 2-4 files whose NAMES best fit this cut (prefer music beds and trailer cues over short stings or SFX; files under ~1 MB are often stingers). Flag any that look like another game\'s finished trailer mix — those may not be licensed for this title. Return ONLY JSON: {"picks":[{"id":"D1","why":"","mood":"","energy":"","licenseFlag":""}]}',{modelTier:"default",cache:false});
+        picks=(r.picks||[]).map(p=>{ const f=cands[Number(String(p.id).replace(/\D/g,""))-1]; return f?{p,f}:null; }).filter(Boolean);
+      }
+    }
+    const keepUser=S.tracks.filter(t=>t.locked);
+    S.tracks=keepUser.concat(
+      picks.map((x,i)=>({id:uid(),source:"Google Drive",name:x.f.title,url:x.f.viewUrl,driveId:x.f.id,mime:x.f.mimeType,size:x.f.fileSize?Number(x.f.fileSize):null,mood:x.p.mood||"",energy:x.p.energy||"",notes:[x.p.why,x.p.licenseFlag?"⚠ "+x.p.licenseFlag:"","Picked by file name — listen before locking."].filter(Boolean).join("\n")})),
+      (kw.envato||[]).slice(0,3).map(e=>({id:uid(),source:"Envato Elements",name:"",url:"",search:e.terms||"",searchUrl:envatoUrl(e.terms),label:e.label||"",mood:e.mood||"",energy:e.energy||"",notes:e.why||""})));
+    trackMsg="Found "+picks.length+" Drive track(s) and "+Math.min(3,(kw.envato||[]).length)+" Envato search(es)."+(picks.length<2?" Pick at least "+(2-picks.length)+" track(s) on Envato and paste the links below.":"");
+    save();
+  }catch(e){ trackMsg="Couldn't finish: "+((e&&e.message)||"unknown error"); }
+  findingTracks=false; render();
+}
+async function previewTrack(t,box){
+  box.replaceChildren(h("span",{class:"note"},"Loading audio from Drive…"));
+  try{ const p=await drive("download_file_content",{fileId:t.driveId}); const b=p&&p.content; if(!b) throw new Error("no audio returned");
+    const bin=atob(b); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([u],{type:t.mime||"audio/mpeg"}));
+    box.replaceChildren(h("audio",{controls:true,autoplay:true,src:url,style:"width:100%"}));
+  }catch(e){ box.replaceChildren(h("span",{class:"err"},(e&&e.code?mcpErr(e):"Couldn't load this file"+(t.size&&t.size>2e7?" — it's large; open it in Drive instead.":".")))); }
+}
+const goodTracks=()=>S.tracks.filter(t=>t.url).length;
+function stepMusic(){
+  const fld=(m,k,label,area)=>{ const el=area?h("textarea",{rows:2}):h("input",{type:"text"}); el.value=m[k]||""; el.addEventListener("input",e=>{m[k]=e.target.value; save();}); return h("label",{class:"f"},label,el); };
+  const n=goodTracks();
+  return [
+    h("h1",null,"Music"),
+    h("p",{class:"lede"},"At least two real tracks from your Google Drive or Envato Elements, plus the direction behind them."),
+    h("div",{class:"panel"},
+      h("div",{class:"row"},h("b",null,"Tracks"),h("span",{class:"counter"+(n<2?" over":"")},n+" / 2 tracks picked"),h("span",{class:"spacer"}),
+        h("button",{class:"btn primary",disabled:!SAMPLE||findingTracks,onclick:findTracks},findingTracks?"Searching…":S.tracks.length?"Search again":"Find tracks in Drive & Envato"),
+        h("button",{class:"btn small",onclick:()=>{S.tracks.push({id:uid(),source:"Envato Elements",name:"",url:"",search:"",searchUrl:"",mood:"",energy:"",notes:""}); save(); render();}},"Add Envato track"),
+        h("button",{class:"btn small",onclick:()=>{S.tracks.push({id:uid(),source:"Google Drive",name:"",url:"",mood:"",energy:"",notes:""}); save(); render();}},"Add Drive track")),
+      trackMsg?h("p",{class:"note"},trackMsg):null,
+      !MCP?h("p",{class:"note"},"Sign in with Google to search your Drive for tracks. Envato searches work either way."):null,
+      h("p",{class:"note"},"Envato can't be searched from inside this page, so each Envato option opens a ready-made search. Pick a track there and paste its link here."),
+      S.tracks.map((t,i)=>{ const prev=h("div",{style:"margin-top:8px"});
+        return h("div",{class:"panel",style:"margin-top:12px"},
+          h("div",{class:"row"},h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},t.source),t.label?h("b",null,t.label):null,h("span",{class:"spacer"}),
+            t.searchUrl?h("a",{class:"btn small",href:t.searchUrl,target:"_blank",rel:"noopener"},"Search Envato: "+t.search):null,
+            t.driveId?h("button",{class:"btn small",disabled:!MCP,onclick:()=>previewTrack(t,prev)},"Preview"):null,
+            t.url?h("a",{class:"btn small",href:t.url,target:"_blank",rel:"noopener"},"Open"):null,
+            h("button",{class:"btn ghost small",onclick:()=>{S.tracks.splice(i,1); save(); render();}},"Remove")),
+          prev,
+          h("div",{class:"grid2",style:"margin-top:8px"},fld(t,"name","Track name"),
+            (()=>{ const el=h("input",{type:"text",placeholder:t.source==="Envato Elements"?"Paste the Envato track link":"Drive link",value:t.url||"",oninput:e=>{t.url=e.target.value.trim(); t.locked=!!t.url; save(); }}); el.addEventListener("change",()=>render()); return h("label",{class:"f"},"Link",el); })(),
+            fld(t,"mood","Mood"),fld(t,"energy","Energy"),h("div",{class:"wide"},fld(t,"notes","Notes",true))));
+      })),
+    h("h2",null,"Direction"),
+    h("div",{class:"row"},h("button",{class:"btn",disabled:!SAMPLE,onclick:e=>regenMusic(e.currentTarget)},S.music.length?"Suggest new directions":"Suggest directions"),h("button",{class:"btn",onclick:()=>{S.music.push({id:uid(),option:"Option "+(S.music.length+1)}); save(); render();}},"Add direction")),
+    S.music.map((m,i)=>h("div",{class:"panel",style:"margin-top:14px"},
+      h("div",{class:"grid2"},fld(m,"option","Option"),fld(m,"direction","Direction"),fld(m,"mood","Mood"),fld(m,"energy","Energy"),fld(m,"startPoint","Suggested start point"),fld(m,"transitions","Transition points"),h("div",{class:"wide"},fld(m,"notes","Notes for the editor",true))),
+      h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn ghost small",onclick:()=>{S.music.splice(i,1); save(); render();}},"Remove direction")))),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(3)},"Back"),h("button",{class:"btn primary",onclick:()=>go(5)},"Continue to export"))
+  ];
+}
+
+/* ---------- step 6: export ---------- */
+function qc(){
+  const cap=Number(S.project.supersCap)||5, items=[];
+  const noDesc=S.shots.filter(s=>!s.desc.trim()).length;
+  const noFrame=S.shots.filter(s=>!s.selected).length;
+  const conf=S.shots.reduce((a,s)=>a+s.confirm.length,0);
+  items.push([!!S.project.game,"Game title set"]);
+  cuts().forEach(c=>items.push([shotsOf(c).length>0,cutLabel(c)+": "+shotsOf(c).length+" shots"+(S.project.durations[c]?" for "+S.project.durations[c]:"")]));
+  items.push([noDesc===0,noDesc?noDesc+" shot(s) have no description":"Every shot has a description"]);
+  cuts().forEach(c=>items.push([supersUsed(c)<=cap,cutLabel(c)+" lower thirds "+supersUsed(c)+" / "+cap]));
+  items.push([noFrame===0,noFrame?noFrame+" shot(s) have no frame and aren't marked \"no screenshot\"":"Every shot has a frame or is marked no screenshot"]);
+  items.push([conf===0,conf?conf+" item(s) still need confirmation":"Nothing flagged for confirmation"]);
+  items.push([goodTracks()>=2,goodTracks()+" music track(s) linked (need at least 2 from Drive or Envato)"]);
+  items.push([S.music.length>0,S.music.length?S.music.length+" music direction(s)":"No music direction yet"]);
+  return items;
+}
+const SUPER_LABEL=s=>s.superType==="None"||!s.superText.trim()?"":(s.superType==="Lower Thirds"?"":s.superType+": ")+s.superText.trim();
+async function buildXlsx(){
+  if(!window.ExcelJS) throw new Error("The spreadsheet library didn't load. Check your connection and reload.");
+  const p=S.project, cap=Number(p.supersCap)||5, wb=new ExcelJS.Workbook();
+  const EB="FF08071A", MI="FF373278", TI="FFECEAFF", PK="FFFF9999", WH="FFFFFFFF", INK="FF1F1D3A", LN="FFD6D3F0";
+  const fill=c=>({type:"pattern",pattern:"solid",fgColor:{argb:c},bgColor:{argb:c}});
+  const thin={style:"thin",color:{argb:LN}}, border={top:thin,left:thin,bottom:thin,right:thin};
+  const L=200, HDR=["Scene","Shot","Still","Shot Type","Graphics","Description","Sound","Sound Description","Notes"];
+  const COLW=(444-5)/7, ROWH=250*0.75; // columns C onward = 444 px, shot rows = 250 px
+  const W=[8,7,COLW,COLW,COLW,COLW,COLW,COLW,COLW];
+  const GAME=(p.game||"UNTITLED").toUpperCase().replace(/"/g,"");
+  const cf=(ws,ref,formula,bg,fc,bold=true,prio)=>ws.addConditionalFormatting({ref,rules:[{type:"expression",priority:prio,formulae:[formula],style:{fill:fill(bg),font:{color:{argb:fc},bold}}}]});
+  for (const c of cuts()){
+    const list=shotsOf(c), lab=cutLabel(c).replace(/[\\\/\?\*\[\]:]/g," ").slice(0,31);
+    const ws=wb.addWorksheet(lab,{properties:{tabColor:{argb:c==="Launch trailer"?PK:MI}},views:[{state:"frozen",ySplit:2,showGridLines:false}]});
+    W.forEach((w,i)=>ws.getColumn(i+1).width=w);
+    ws.mergeCells("A1:I1");
+    const long=(c==="Other"?(p.videoTypeOther||"Other"):c==="Release date announcement"?"Release date announcement trailer":c).toUpperCase().replace(/"/g,""), dur=p.durations[c]||"";
+    const t=ws.getCell("A1");
+    t.value={formula:`"${GAME}  ·  ${long}${dur?"  ·  "+dur:""}  ·  "&COUNTA(B3:B${L})&" shots  ·  "&COUNTIF(E3:E${L},"Lower Thirds")&" / ${cap} lower thirds"`,result:GAME+"  ·  "+long};
+    t.font={name:"Arial",size:14,bold:true,color:{argb:WH}}; t.fill=fill(EB); t.alignment={vertical:"middle",indent:1}; ws.getRow(1).height=28.5;
+    HDR.forEach((x,i)=>{ const h2=ws.getCell(2,i+1); h2.value=x; h2.font={name:"Arial",size:10,bold:true,color:{argb:WH}}; h2.fill=fill(MI); h2.alignment={horizontal:"center",vertical:"middle"}; h2.border={bottom:{style:"thick",color:{argb:PK}}}; });
+    ws.getRow(2).height=19.5;
+    let prevScene=null, shotNo=0;
+    list.forEach((s,i)=>{
+      const r=i+3, sc=Number(s.scene)||1, newScene=sc!==prevScene; if(newScene){ shotNo=0; prevScene=sc; } shotNo++;
+      const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; const src=f?S.sources.find(x=>x.id===f.sourceId):null;
+      const desc=s.desc+(s.superType!=="None"&&s.superText&&s.superText.trim()?" On-screen: \""+s.superText.trim()+"\"":"");
+      const ref=f?("Still: "+f.sourceName+(f.t!=null?" @ "+tc(f.t):"")+(src&&linkUrl(src)?" — "+linkWithTime(src,f.t):"")):(s.selected==="none"?"No still needed.":"Still: needs capture.");
+      const notes=[s.notes,...(s.confirm||[]),ref].filter(Boolean).join("\n");
+      const vals=[newScene?sc:null,shotNo,null,s.shotType||"Full screen",s.superType!=="None"?s.superType:null,desc,s.sound&&s.sound!=="None"?s.sound:null,s.soundDesc||null,notes];
+      vals.forEach((v,k)=>{ const cell=ws.getCell(r,k+1); cell.value=v; cell.font={name:"Arial",size:k===8?9:10,color:{argb:k===8?"FF57606A":INK},italic:k===8,bold:k===1}; cell.border=border; cell.alignment={horizontal:[5,7,8].includes(k)?"left":"center",vertical:"middle",wrapText:true}; });
+      ws.getRow(r).height=ROWH;
+      if(f&&f.dataUrl){ const id=wb.addImage({base64:f.dataUrl,extension:"jpeg"}); ws.addImage(id,{tl:{col:2.02,row:r-1+0.03},ext:{width:430,height:242}}); }
+    });
+    cf(ws,`E3:E${L}`,`AND(E3="Lower Thirds",COUNTIF($E$3:$E$${L},"Lower Thirds")>${cap})`,"FFC62828",WH,true,1);
+    cf(ws,`A3:A${L}`,"LEN(A3)>0",MI,WH,true,2);
+    cf(ws,`E3:E${L}`,'E3="Lower Thirds"',"FFFFE3E3","FFB23A3A",true,3);
+    cf(ws,`E3:E${L}`,'OR(E3="Intro",E3="End-card")',MI,WH,true,4);
+    cf(ws,`E3:E${L}`,"LEN(E3)>0",TI,MI,true,5);
+    cf(ws,`G3:G${L}`,'G3="Music"',"FFDCD9F7",MI,true,6);
+    cf(ws,`G3:G${L}`,'G3="SFX"',"FFEEEEF2","FF4A4866",true,7);
+    cf(ws,`G3:G${L}`,'G3="VO"',"FFFFE3E3","FFB23A3A",true,8);
+    cf(ws,`A3:I${L}`,"AND(LEN($B3)>0,ISEVEN(COUNTA($A$3:$A3)))","FFF4F3FF",INK,false,9);
+    ws.dataValidations.add(`D3:D${L}`,{type:"list",allowBlank:true,formulae:['"Full screen,Mid-shot,Close-up"']});
+    ws.dataValidations.add(`E3:E${L}`,{type:"list",allowBlank:true,formulae:['"Lower Thirds,Title Card,Supers,Caption,Callout,Intro,End-card"']});
+    ws.dataValidations.add(`G3:G${L}`,{type:"list",allowBlank:true,formulae:['"VO,SFX,Music"']});
+  }
+  // Music — same look as the cut tabs
+  const mu=wb.addWorksheet("Music",{properties:{tabColor:{argb:"FF5B5880"}},views:[{state:"frozen",ySplit:2,showGridLines:false}]});
+  [16,46,22,14,60].forEach((w,i)=>mu.getColumn(i+1).width=w); mu.mergeCells("A1:E1");
+  const mt=mu.getCell("A1"); mt.value=GAME+"  ·  MUSIC"; mt.font={name:"Arial",size:14,bold:true,color:{argb:WH}}; mt.fill=fill(EB); mt.alignment={vertical:"middle",indent:1}; mu.getRow(1).height=28.5;
+  ["Option","Track / Direction","Mood","Energy","Notes"].forEach((x,i)=>{ const c2=mu.getCell(2,i+1); c2.value=x; c2.font={name:"Arial",size:10,bold:true,color:{argb:WH}}; c2.fill=fill(MI); c2.alignment={horizontal:"center",vertical:"middle"}; c2.border={bottom:{style:"thick",color:{argb:PK}}}; });
+  const rows=[...S.tracks.filter(t=>t.url||t.name).map((t,i)=>["Track "+(i+1)+" — "+t.source,(t.name||"(name)")+(t.url?"\n"+t.url:""),t.mood||"",t.energy||"",t.notes||""]),
+    ...S.music.map(m=>[m.option||"Direction",m.direction||"",m.mood||"",m.energy||"",[m.startPoint?"Start: "+m.startPoint:"",m.transitions?"Transitions: "+m.transitions:"",m.notes||""].filter(Boolean).join("\n")])];
+  rows.forEach((v,i)=>{ v.forEach((x,k)=>{ const c3=mu.getCell(i+3,k+1); c3.value=x; c3.font={name:"Arial",size:10,color:{argb:INK},bold:k===0}; c3.border=border; c3.alignment={vertical:"middle",horizontal:k===0||k===3?"center":"left",wrapText:true}; }); });
+  // Brief & Rubric — hidden, like the template
+  const br=wb.addWorksheet("Brief & Rubric",{state:"hidden",views:[{showGridLines:false}]});
+  br.getColumn(1).width=24; br.getColumn(2).width=100; br.mergeCells("A1:B1");
+  const bt=br.getCell("A1"); bt.value=GAME+"  ·  TRAILER BRIEF SUMMARY"; bt.font={name:"Arial",size:14,bold:true,color:{argb:WH}}; bt.fill=fill(EB); br.getRow(1).height=28.5;
+  const cutsTxt=cuts().map(c=>cutLabel(c)+" "+(p.durations[c]||"")+", \""+'&COUNTA('+"'"+cutLabel(c).slice(0,31)+"'"+'!B3:B'+L+')&" shots').join("  ·  ");
+  const info=[["Game",p.game],["Video types",cuts().map(cutLabel).join(", ")],["Duration goal",{formula:'"'+cutsTxt+'  ·  max '+cap+' lower thirds per trailer (end card excluded)"',result:""}],["Platform / aspect",[p.platform,p.aspect].filter(Boolean).join(" · ")],
+    ["Primary messaging",p.messaging],["Mandatory items",p.mandatory],["Brief",p.brief],
+    ["Open items",[...S.shots.flatMap(x=>(x.confirm||[]).map(c=>cutLabel(x.cut)+" "+pad(shotsOf(x.cut).indexOf(x)+1)+": "+c)),...S.missing.map(m=>"Missing footage: "+m)].join("\n")],
+    ["Sources",S.sources.map(x=>x.name+(linkUrl(x)?" — "+linkUrl(x):"")).join("\n")],["Created",new Date().toISOString().slice(0,10)]];
+  info.forEach(([k,v],i)=>{ const a2=br.getCell(i+2,1), b2=br.getCell(i+2,2); a2.value=k; b2.value=v==null?"":v; a2.fill=fill(MI); a2.font={name:"Arial",size:10,bold:true,color:{argb:WH}}; b2.font={name:"Arial",size:10,color:{argb:INK}}; [a2,b2].forEach(x=>{ x.alignment={vertical:"middle",wrapText:true,indent:1}; x.border={bottom:thin}; }); });
+  return await wb.xlsx.writeBuffer();
+}
+function b64(buf){ const u=new Uint8Array(buf); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
+function defaultName(){ const p=S.project; const code=(p.game||"UNTITLED").replace(/[^A-Za-z0-9]/g,"").slice(0,4).toUpperCase(); const vt=cuts().map(c=>cutLabel(c).replace(/[^A-Za-z0-9]+/g,"-")).join("-").toUpperCase(); return code+"-"+vt+"-technical_script"; }
+async function doDownload(btn,msg){
+  btn.disabled=true; msg.textContent="Building the spreadsheet…"; msg.className="note";
+  try{ const buf=await buildXlsx(); const name=(S.exportInfo.sheetName||defaultName())+".xlsx";
+    await DL.save({filename:name,data:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}); msg.textContent="Saved "+name+"."; msg.className="okc"; }
+  catch(e){ msg.textContent=e&&e.code==="declined"?"Download cancelled.":"Couldn't save the file: "+((e&&e.message)||"unknown error"); msg.className="err"; }
+  btn.disabled=false;
+}
+async function doDrive(btn,msg){
+  btn.disabled=true; msg.textContent="Building the spreadsheet…"; msg.className="note";
+  try{
+    const buf=await buildXlsx();
+    const input={title:S.exportInfo.sheetName||defaultName(),base64Content:b64(buf),contentMimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"};
+    let parentOk=false;
+    if(S.exportInfo.folderId){ try{ const d=await MCP.describeTool(DRIVE,"create_file"); parentOk=!!(d&&d.inputSchema&&d.inputSchema.properties&&d.inputSchema.properties.parentId); }catch(_){} if(parentOk) input.parentId=S.exportInfo.folderId; }
+    msg.textContent="Creating the Google Sheet…";
+    const p=await drive("create_file",input);
+    if(S.exportInfo.folderId&&!parentOk&&p&&p.id){ try{ await drive("update_file",{fileId:p.id,parentId:S.exportInfo.folderId}); }catch(e){ msg.textContent="Sheet created in My Drive, but moving it to "+S.exportInfo.folderName+" failed: "+mcpErr(e); } }
+    S.exportInfo.lastUrl=(p&&p.viewUrl)||""; save(); render();
+  }catch(e){ msg.textContent=mcpErr(e)+" Nothing was created if this happened before the upload; check Drive before trying again."; msg.className="err"; btn.disabled=false; }
+}
+function stepExport(){
+  const items=qc(); const ei=S.exportInfo;
+  const name=h("input",{type:"text",value:ei.sheetName||defaultName(),oninput:e=>{ei.sheetName=e.target.value; save();}});
+  const dmsg=h("p",{class:"note"}), gmsg=h("p",{class:"note"});
+  const p=S.project;
+  return [
+    h("h1",null,"Export the tech script"),
+    h("p",{class:"lede"},"Same layout as your template: an RDA and a Launch tab (Scene, Shot, Still, Shot Type, Graphics, Description, Sound, Sound Description, Notes) with the stills embedded, a Music tab, and the Brief & Rubric tab hidden. indie.io colours, live shot and lower-third counts."),
+    h("div",{class:"panel"},h("h2",{style:"margin-top:0"},"Final check"),h("table",{class:"qc"},items.map(([ok,t])=>h("tr",null,h("td",{class:ok?"okc":"err"},ok?"✓":"!"),h("td",null,t))))),
+    h("div",{class:"panel",style:"margin-top:16px"},
+      h("label",{class:"f"},"Google Sheet name",name),
+      h("h2",null,"Destination folder"),
+      MCP?folderPicker(f=>{ ei.folderId=f.id; ei.folderName=f.title; save(); const c=$("#confirmFolder"); if(c) c.textContent=f.title; },"Search for the folder to save into. Leave unpicked to save to My Drive."):h("p",{class:"note"},"Sign in with Google to save straight to Drive, or download the .xlsx."),
+      h("h2",null,"Confirm"),
+      h("table",{class:"qc"},
+        h("tr",null,h("td",null,""),h("td",null,h("b",null,"Folder: "),h("span",{id:"confirmFolder"},ei.folderName||"My Drive"))),
+        h("tr",null,h("td",null,""),h("td",null,h("b",null,"Game: "),p.game||"(not set)")),
+        h("tr",null,h("td",null,""),h("td",null,h("b",null,"Video types: "),cuts().map(cutLabel).join(" + "))),
+        cuts().map(c=>h("tr",null,h("td",null,""),h("td",null,h("b",null,cutLabel(c)+" shots: "),shotsOf(c).map((s,i)=>pad(i+1)).join(" ")||"none")))),
+      h("div",{class:"row",style:"margin-top:16px"},
+        h("button",{class:"btn primary",disabled:!MCP||!S.shots.length,onclick:e=>doDrive(e.currentTarget,gmsg)},"Create Google Sheet"),
+        h("button",{class:"btn",disabled:!DL||!S.shots.length,onclick:e=>doDownload(e.currentTarget,dmsg)},"Download .xlsx")),
+      gmsg,dmsg,
+      ei.lastUrl?h("p",{class:"okc"},"Created. ",h("a",{href:ei.lastUrl,target:"_blank",rel:"noopener"},"Open the Google Sheet")):null
+    ),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn ghost",onclick:()=>{ if(confirm("Start a new tech script? This clears the current draft.")){ const keep=S.exportInfo; S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5}; S.activeCut=null; S.sources=[];S.frames=[];S.shots=[];S.music=[];S.missing=[];S.analysis=null; S.exportInfo={sheetName:"",folderId:keep.folderId,folderName:keep.folderName,lastUrl:""}; FILES.clear(); logLines=[]; go(0);} }},"Start a new tech script"))
+  ];
+}
+
+/* ---------- render ---------- */
+function render(){
+  renderRail();
+  const views=[stepBrief,stepSources,stepAnalyse,stepReview,stepMusic,stepExport];
+  $("#main").replaceChildren(...views[S.step]().flat().filter(Boolean));
+  updateCounter();
+}
+(async()=>{ await load(); render(); lightUp(); })();
+</script>
+</body>
+</html>
