@@ -40,7 +40,7 @@ self.addEventListener("fetch", (event) => {
       "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&supportsAllDrives=true",
       { headers }
     );
-    if (!res.ok && res.status !== 206) return new Response(await res.text(), { status: res.status });
+    if (!res.ok && res.status !== 206) return new Response("Drive: " + (await res.text()), { status: res.status });
 
     // Rebuild the response so the player always sees Content-Range / Accept-Ranges
     // (cross-origin responses can hide them), and the frames stay capturable.

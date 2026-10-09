@@ -21,6 +21,9 @@ async function verifyGoogle(req) {
   return u.email;
 }
 
+// Tolerate common paste mistakes: surrounding spaces, line breaks, quotes.
+const cleanKey = (k) => String(k || "").trim().replace(/^['"]+|['"]+$/g, "").trim();
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: "ANTHROPIC_API_KEY isn't set on the server." });
@@ -43,7 +46,7 @@ module.exports = async function handler(req, res) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "x-api-key": cleanKey(process.env.ANTHROPIC_API_KEY),
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({

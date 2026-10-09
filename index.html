@@ -299,6 +299,19 @@ async function swReady(){ if(!("serviceWorker" in navigator)) throw new Error("T
 async function sendTokenToSW(){ try{ await swReady(); await new Promise(res=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>res(); navigator.serviceWorker.controller.postMessage({type:"token",token:GTOKEN},[ch.port2]); setTimeout(res,1500); }); }catch(e){} }
 const isDriveVideo=x=>!!(x&&x.driveId&&GTOKEN&&/video/i.test((x.linkType||"")+" "+(x.mime||"")));
 function canPlay(x){ return FILES.has(x.id)||isDriveVideo(x); }
+async function whyUnreadable(mu,err){
+  if(!mu) return (err&&err.message)||"couldn't start streaming.";
+  if(mu.blob) return "this browser can't decode the file (often ProRes/HEVC). Use an H.264 version.";
+  try{
+    const r=await fetch(mu.url,{headers:{Range:"bytes=0-15"}});
+    if(r.ok||r.status===206) return "Drive streams it, but this browser can't decode it (often ProRes/HEVC, or the clip needs re-exporting with \"fast start\"). Try an H.264 .mp4.";
+    const t=(await r.text()).slice(0,180);
+    if(r.status===401) return "the streaming helper isn't signed in. Reload the page, sign in again, and retry.";
+    if(r.status===404&&!/drive|google/i.test(t)) return "the streaming helper (sw.js) isn't running. Check sw.js is deployed next to index.html, then reload the page twice.";
+    if(r.status===403) return "Google Drive refused access ("+t.replace(/\s+/g," ")+"). The file may be restricted from downloading, or your account can't open it.";
+    return "Drive returned "+r.status+" — "+t.replace(/\s+/g," ");
+  }catch(e){ return "the streaming request failed ("+((e&&e.message)||"network error")+")."; }
+}
 async function mediaUrl(x){ if(FILES.has(x.id)) return {url:URL.createObjectURL(FILES.get(x.id)),blob:true}; await token(); await swReady(); await sendTokenToSW(); return {url:"/drive-stream/"+x.driveId+(x.size?"?size="+x.size:""),blob:false}; }
 function makeSample(){
   const toB64=blob=>new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
@@ -578,7 +591,9 @@ async function extractFrames(){
   let vi=0;
   for (const v of vids){
     vi++;
-    let el; try{ el=await openVideo((await mediaUrl(v)).url); }catch(e){ logIt("Skipped "+v.name+": this browser can't read it."); continue; }
+    let el, mu=null;
+    try{ mu=await mediaUrl(v); el=await openVideo(mu.url); }
+    catch(e){ logIt("Skipped "+v.name+": "+(await whyUnreadable(mu,e))); continue; }
     const dur=el.duration||v.duration||0; if(!v.duration){ v.duration=dur; }
     const samples=Math.min(400,Math.max(30,Math.round(dur/1.5)));
     const step=dur/(samples+1);
