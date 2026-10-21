@@ -1,96 +1,59 @@
-# Tech Script Generator — Vercel version
+# Tech Script Generator — Vercel version (Rupert)
 
-Brief + footage in → indie.io-branded tech script out (RDA / Launch tabs, stills embedded,
-Brief & Rubric hidden, columns C+ at 444 px, shot rows at 250 px).
+Brief + Drive footage in → indie.io-branded tech script out (RDA / Launch tabs, stills embedded,
+Brief & Rubric hidden, columns C+ at 444 px, shot rows at 250 px). Drive videos stream into the
+player for preview, capture (press **C**) and automatic frame scanning — nothing is downloaded.
+AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 
-This version runs outside Claude, so it can **stream Google Drive videos straight into the
-player**: preview, scrub, press **C** to capture, and automatic frame scanning all work on
-linked Drive footage — nothing is downloaded.
-
-## What's in the folder
+## Files
 
 | File | What it does |
 |---|---|
-| `index.html` | The whole app (UI, capture workspace, export). |
-| `sw.js` | Service worker that streams Drive videos with your Google token (enables preview + capture). |
-| `api/claude.js` | Server route that sends prompts/stills to Claude. Holds the Anthropic key; only indie.io Google accounts can call it. |
+| `index.html` | The app. |
+| `sw.js` | Streams Drive videos with your Google sign-in (preview + capture). |
+| `api/_llm.js` | Rupert connection (Cloudflare service token + Rupert key, streaming). |
+| `api/claude.js` | The route the app calls for AI. Only @indie.io Google accounts can use it. |
+| `api/health.js` | Open `/api/health` to check the Rupert connection. |
 | `api/config.js` | Gives the page the Google client ID. |
-| `vercel.json` | Function timeout + service-worker headers. |
-| `.env.example` | The environment variables to set in Vercel. |
+| `vercel.json` | Timeout + service-worker headers. |
 
----
+## Environment variables (Vercel → project → Environment Variables → Production)
 
-## Setup (about 20 minutes, once)
+| Name | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID (`…apps.googleusercontent.com`) |
+| `LLM_API_KEY` | Your Rupert key — Rupert → Settings → Account → API Keys (`sk-…`) |
+| `CF_ACCESS_CLIENT_ID` | Cloudflare service token ID (from Evan, 1Password) |
+| `CF_ACCESS_CLIENT_SECRET` | Cloudflare service token secret (from Evan, 1Password) |
 
-### 1. Google Cloud — "Sign in with Google" + Drive access
+Optional: `LLM_MODEL` (default `qwen3.8:27b` — must accept images; **not** `deepseek-v4-flash`),
+`LLM_BASE_URL` (default `https://rupert.indie.io/api/v1/chat/completions`), `LLM_MAX_IMAGES`
+(default 10), `LLM_MAX_TOKENS` (default 8000), `ALLOWED_DOMAIN` (default `indie.io`).
 
-1. Go to **console.cloud.google.com** → create a project (e.g. `iio-tech-script`), or reuse one.
-2. **APIs & Services → Library** → enable **Google Drive API**.
-3. **APIs & Services → OAuth consent screen**
-   - User type: **Internal** (indie.io Workspace only — no Google review needed).
-   - App name: `Tech Script Generator`, support email: yours.
-   - Scopes: add `openid`, `email`, `.../auth/drive.readonly`, `.../auth/drive.file`.
-4. **APIs & Services → Credentials → Create credentials → OAuth client ID**
-   - Application type: **Web application**
-   - Authorized JavaScript origins: your Vercel URL, e.g. `https://tech-script-generator.vercel.app`
-     (add `http://localhost:3000` too if you'll test locally)
-   - Redirect URIs: leave empty.
-   - Copy the **Client ID**.
+You can delete the old `ANTHROPIC_API_KEY` variable — it isn't used any more.
+After adding or changing variables: **Deployments → ⋯ → Redeploy**.
 
-> If "Internal" isn't available, the Google project isn't inside the indie.io Workspace —
-> ask IT to create it under the organization.
+The Cloudflare token expires **2027-10-19** — ask for a new one before then.
 
-### 2. Anthropic API key
+## Check it
 
-console.anthropic.com → **API Keys** → create a key (use the indie.io org/billing).
+Open `https://<your-app>.vercel.app/api/health`. Look for:
+- `cloudflareIdSet: true`, `cloudflareSecretSet: true`, `rupertKeySet: true`
+- `testCall: "Working ✔ …"`
 
-### 3. Deploy to Vercel
+If it says Cloudflare blocked the request, re-check the two `CF_ACCESS_…` values.
+If it mentions an image limit, set `LLM_MAX_IMAGES` to the number it gives.
 
-**Option A — dashboard (no terminal)**
-1. Put this folder in a GitHub repo (or add it to the iio-tools repo as its own folder).
-2. vercel.com → **Add New → Project** → import the repo → set **Root Directory** to this folder.
-3. **Environment Variables**: add `ANTHROPIC_API_KEY` and `GOOGLE_CLIENT_ID`
-   (optional: `ALLOWED_DOMAIN`, model overrides — see `.env.example`).
-4. **Deploy**.
+## Google Cloud setup (one-off, already done if sign-in works)
 
-**Option B — Vercel CLI**
-```bash
-npm i -g vercel
-cd tech-script-generator
-vercel                     # first deploy, follow prompts
-vercel env add ANTHROPIC_API_KEY
-vercel env add GOOGLE_CLIENT_ID
-vercel --prod
-```
+console.cloud.google.com → enable **Google Drive API** → OAuth consent screen **Internal** with scopes
+`openid`, `email`, `drive.readonly`, `drive.file` → Credentials → **OAuth client ID (Web)** with your
+Vercel URL in **Authorized JavaScript origins**.
 
-After the first deploy, copy the production URL into the Google OAuth client's
-**Authorized JavaScript origins** (step 1.4) if you hadn't already.
+## Limits
 
----
-
-## Using it
-
-1. Open the site → **Sign in with Google** (left panel). Use your indie.io account.
-2. **Brief** → fill in, tick **RDA + Launch**.
-3. **Sources** → paste Drive file/folder links (or **Browse Google Drive**). Linked videos show
-   "streams from Drive".
-4. **Analyse** → Claude plans the shots and auto-picks distinct stills from the streamed footage.
-5. **Review** → **Capture from source** or **Open capture workspace**: the Drive video plays in
-   the tool; scrub, press **C**, and the frame becomes an option for that shot.
-6. **Music** → finds Drive tracks + Envato searches (at least 2 tracks).
-7. **Export** → **Create Google Sheet** (pick the folder) or **Download .xlsx**.
-
-## Notes & limits
-
-- **Codecs:** the browser must be able to decode the file. H.264/AAC `.mp4`/`.mov` (OBS default)
-  play fine; **ProRes and some HEVC files won't** — use an H.264 proxy for those.
-- **First load:** the service worker needs one page load to activate. If a Drive clip says
-  "Reload the page once…", reload and try again.
-- **Speed:** scanning a long clip seeks through Drive many times; big 4K files scan slower.
-- **Timeouts:** `vercel.json` sets the Claude route to 300 s. If your Vercel plan rejects that,
-  lower it to 60.
-- **Who can use it:** only Google accounts ending in `@indie.io` (change with `ALLOWED_DOMAIN`).
-  The Anthropic key never reaches the browser.
-- **Envato:** no public Envato search API, so the tool opens ready-made searches; paste the
-  chosen track link back in.
-- Drafts are saved in each person's browser (IndexedDB), not on the server.
+- Browser must decode the video: H.264 `.mp4/.mov` fine; ProRes / some HEVC won't play.
+- Google limits how much a shared Drive file can be read per day. If a clip says its download quota
+  is exceeded, **Make a copy** in Drive and link the copy (or wait ~24 h).
+- First visit: reload once so the streaming helper (`sw.js`) activates.
+- Envato has no public search API — the tool opens ready-made searches; paste the track link back.

@@ -240,7 +240,7 @@ async function load(){ try{ const d=await idb(); const v=await new Promise(r=>{ 
 /* ---------- capabilities ---------- */
 let SAMPLE=null, MCP=null, DL=null, IMG_LIMITS=null;
 const DRIVE="Google Drive";
-/* ===== Vercel runtime: Google sign-in, Drive REST, Claude via /api/claude ===== */
+/* ===== Vercel runtime: Google sign-in, Drive REST, AI via /api/claude (Rupert) ===== */
 let CFG={}, GTOKEN=null, GEXP=0, GEMAIL="", tokenClient=null, tokenWaiters=[];
 const SCOPES="openid email https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
 function renderAuth(){
@@ -294,7 +294,6 @@ const driveMCP={
   },
   async describeTool(){ return {inputSchema:{properties:{parentId:{}}}}; }
 };
-/* Service worker streams Drive videos with your token, so the player can seek and capture without downloading */
 async function swReady(){ if(!("serviceWorker" in navigator)) throw new Error("This browser can't stream Drive videos (no service worker support)."); await navigator.serviceWorker.ready; if(!navigator.serviceWorker.controller){ await new Promise(r=>{ navigator.serviceWorker.addEventListener("controllerchange",r,{once:true}); setTimeout(r,3000); }); } if(!navigator.serviceWorker.controller) throw new Error("Reload the page once so Drive streaming can start."); }
 async function sendTokenToSW(){ try{ await swReady(); await new Promise(res=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>res(); navigator.serviceWorker.controller.postMessage({type:"token",token:GTOKEN},[ch.port2]); setTimeout(res,1500); }); }catch(e){} }
 const isDriveVideo=x=>!!(x&&x.driveId&&GTOKEN&&/video/i.test((x.linkType||"")+" "+(x.mime||"")));
@@ -322,24 +321,24 @@ function makeSample(){
       // Vercel caps request bodies at 4.5 MB — shrink the contact sheets until the request fits (~3.6 MB to be safe)
       const LIMIT=3.6e6-prompt.length;
       const shrink=(blob,scale,q)=>new Promise(r=>{ const im=new Image(); im.onload=()=>{ const c=document.createElement("canvas"); c.width=Math.round(im.width*scale); c.height=Math.round(im.height*scale); c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(im.src); c.toBlob(r,"image/jpeg",q); }; im.src=URL.createObjectURL(blob); });
-      let blobs=(opts.images||[]).slice(0,20), scale=1, q=0.8;
+      const cap=CFG.maxImages||10; let blobs=(opts.images||[]).slice(0,cap), scale=1, q=0.8;
       let total=blobs.reduce((a,b)=>a+b.size*1.37,0);
-      for(let i=0;i<6&&total>LIMIT;i++){ scale*=0.82; q=Math.max(0.5,q-0.07); blobs=await Promise.all((opts.images||[]).slice(0,20).map(b=>shrink(b,scale,q))); total=blobs.reduce((a,b)=>a+b.size*1.37,0); }
+      for(let i=0;i<6&&total>LIMIT;i++){ scale*=0.82; q=Math.max(0.5,q-0.07); blobs=await Promise.all((opts.images||[]).slice(0,cap).map(b=>shrink(b,scale,q))); total=blobs.reduce((a,b)=>a+b.size*1.37,0); }
       while(total>LIMIT&&blobs.length>1){ blobs.pop(); total=blobs.reduce((a,b)=>a+b.size*1.37,0); }
       const images=[]; for(const b of blobs) images.push({media_type:"image/jpeg",data:await toB64(b)});
       const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({prompt,images,tier:opts.modelTier||"default"})});
       const j=await r.json().catch(()=>({}));
-      if(!r.ok){ const e=new Error(j.error||("Claude request failed ("+r.status+")")); if(r.status===413) e.message="The request was too big for the server even after shrinking the stills. Try fewer or shorter clips."; e.code=r.status===429?"rate_limited":r.status===401||r.status===403?"not_granted":"error"; throw e; }
+      if(!r.ok){ const e=new Error(j.error||("AI request failed ("+r.status+")")); if(r.status===413) e.message="The request was too big for the server even after shrinking the stills. Try fewer or shorter clips."; e.code=r.status===429?"rate_limited":"error"; throw e; }
       const txt=String(j.text||"").replace(/```json|```/g,""); const a=txt.indexOf("{"), b2=txt.lastIndexOf("}");
-      try{ return JSON.parse(txt.slice(a,b2+1)); }catch(e){ throw new Error("Claude's answer wasn't valid JSON. Try again."); }
+      try{ return JSON.parse(txt.slice(a,b2+1)); }catch(e){ throw new Error("The AI's answer wasn't valid JSON. Try again."); }
     },
-    async limits(){ return {images:{maxCount:10}}; }
+    async limits(){ return {images:{maxCount:CFG.maxImages||10}}; }
   };
 }
 async function lightUp(){
   try{ const r=await fetch("/api/config",{cache:"no-store"}); CFG=r.ok?await r.json():{configError:"api"}; }catch(e){ CFG={configError:"api"}; }
   if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js"); }catch(e){} }
-  SAMPLE=makeSample(); IMG_LIMITS={maxCount:10};
+  SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
   DL={save:async({filename,data})=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(data); a.download=filename; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }};
   renderAuth();
   const wait=()=>new Promise(r=>{ const t0=Date.now(); (function poll(){ if(window.google&&google.accounts&&google.accounts.oauth2) r(true); else if(Date.now()-t0>8000) r(false); else setTimeout(poll,100); })(); });
@@ -651,7 +650,8 @@ function projectText(){
   return ["Game: "+(p.game||"(not given)"),"Cuts to script (separate shot list each): "+cuts().map(t=>cutLabel(t)+" ["+t+(t==="Other"?": "+(p.videoTypeOther||""):"")+"] — target "+(p.durations[t]||"not given")).join("; "),"Platform: "+(p.platform||"(not given)"),"Aspect ratio: "+(p.aspect||"(not given)"),"Max supers per cut: "+(p.supersCap||5),
     "Required messaging: "+(p.messaging||"(none given)"),"Mandatory items: "+(p.mandatory||"(none given)"),"BRIEF:\n"+(p.brief||"(no brief text)")].join("\n");
 }
-const RULES=`You are a video production tech script assistant helping a professional trailer editor. Produce a practical shot list developers can record from.
+const RULES=`Answer with valid JSON only — no prose, no code fences.
+You are a video production tech script assistant helping a professional trailer editor. Produce a practical shot list developers can record from.
 Rules:
 - Interpret the brief first: narrative purpose, key selling points, tone, visual priorities.
 - Every shot needs a reason to exist. Think like a trailer editor: hook, escalation, variety, pacing, a strong opening and ending. Avoid repeating the same kind of gameplay back to back.

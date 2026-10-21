@@ -16,10 +16,7 @@ self.addEventListener("message", (e) => {
 
 async function fileSize(id) {
   if (sizes.has(id)) return sizes.get(id);
-  const r = await fetch(
-    "https://www.googleapis.com/drive/v3/files/" + id + "?fields=size&supportsAllDrives=true",
-    { headers: { Authorization: "Bearer " + TOKEN } }
-  );
+  const r = await fetch("https://www.googleapis.com/drive/v3/files/" + id + "?fields=size&supportsAllDrives=true", { headers: { Authorization: "Bearer " + TOKEN } });
   const j = await r.json();
   const n = Number(j.size) || null;
   sizes.set(id, n);
@@ -36,14 +33,8 @@ self.addEventListener("fetch", (event) => {
     const range = event.request.headers.get("range");
     const headers = { Authorization: "Bearer " + TOKEN };
     if (range) headers.Range = range;
-    const res = await fetch(
-      "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&supportsAllDrives=true",
-      { headers }
-    );
+    const res = await fetch("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&supportsAllDrives=true", { headers });
     if (!res.ok && res.status !== 206) return new Response("Drive: " + (await res.text()), { status: res.status });
-
-    // Rebuild the response so the player always sees Content-Range / Accept-Ranges
-    // (cross-origin responses can hide them), and the frames stay capturable.
     const out = new Headers();
     out.set("Content-Type", res.headers.get("content-type") || "video/mp4");
     out.set("Accept-Ranges", "bytes");
