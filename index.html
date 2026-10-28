@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
@@ -207,7 +208,7 @@ const parseTc = str => { const p = String(str).trim().split(":").map(Number); if
 const uid = () => Math.random().toString(36).slice(2,9);
 
 /* ---------- state ---------- */
-const STEPS = ["Brief","Sources","Analyse","Review shots","Music","Export"];
+const STEPS = ["Brief","Sources","Analyse","Review shots","Music","Supers","Share","Export"];
 const VIDEO_TYPES = ["Trailer","Launch trailer","Release date announcement","Steam teaser","Console trailer","Social video","Event trailer","Other"];
 const SHORT = {"Release date announcement":"RDA","Launch trailer":"Launch","Steam teaser":"Teaser","Console trailer":"Console","Social video":"Social","Event trailer":"Event","Trailer":"Trailer"};
 const cutLabel = t => t==="Other" ? (S.project.videoTypeOther||"Other") : (SHORT[t]||t);
@@ -369,7 +370,7 @@ async function lightUp(){
   if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js");
     navigator.serviceWorker.addEventListener("message",async e=>{ if(e.data&&e.data.type==="need-token"&&e.ports&&e.ports[0]){ let t=null; try{ if(e.data.expired) GEXP=0; t=GTOKEN?await token():null; }catch(err){} e.ports[0].postMessage({token:t}); } });
   }catch(e){} }
-  SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
+  window.TSG_SERVER=true; SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
   DL={save:async({filename,data})=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(data); a.download=filename; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }};
   renderAuth();
   const wait=()=>new Promise(r=>{ const t0=Date.now(); (function poll(){ if(window.google&&google.accounts&&google.accounts.oauth2) r(true); else if(Date.now()-t0>8000) r(false); else setTimeout(poll,100); })(); });
@@ -1146,7 +1147,7 @@ function stepMusic(){
     S.music.map((m,i)=>h("div",{class:"panel",style:"margin-top:14px"},
       h("div",{class:"grid2"},fld(m,"option","Option"),fld(m,"direction","Direction"),fld(m,"mood","Mood"),fld(m,"energy","Energy"),fld(m,"startPoint","Suggested start point"),fld(m,"transitions","Transition points"),h("div",{class:"wide"},fld(m,"notes","Notes for the editor",true))),
       h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn ghost small",onclick:()=>{S.music.splice(i,1); save(); render();}},"Remove direction")))),
-    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(3)},"Back"),h("button",{class:"btn primary",onclick:()=>go(5)},"Continue to export"))
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(3)},"Back"),h("button",{class:"btn primary",onclick:()=>go(5)},"Continue to supers"))
   ];
 }
 
@@ -1178,6 +1179,7 @@ async function buildXlsx(){
   const W=[8,7,COLW,COLW,COLW,COLW,COLW,COLW,COLW];
   const GAME=(p.game||"UNTITLED").toUpperCase().replace(/"/g,"");
   const cf=(ws,ref,formula,bg,fc,bold=true,prio)=>ws.addConditionalFormatting({ref,rules:[{type:"expression",priority:prio,formulae:[formula],style:{fill:fill(bg),font:{color:{argb:fc},bold}}}]});
+  const COMP={}; for(const sx of S.shots){ if(hasSuper(sx)){ try{ COMP[sx.id]=await compositeStill(sx,960); }catch(e){} } }
   for (const c of cuts()){
     const list=shotsOf(c), lab=cutLabel(c).replace(/[\\\/\?\*\[\]:]/g," ").slice(0,31);
     const ws=wb.addWorksheet(lab,{properties:{tabColor:{argb:c==="Launch trailer"?PK:MI}},views:[{state:"frozen",ySplit:2,showGridLines:false}]});
@@ -1199,7 +1201,7 @@ async function buildXlsx(){
       const vals=[newScene?sc:null,shotNo,null,s.shotType||"Full screen",s.superType!=="None"?s.superType:null,desc,s.sound&&s.sound!=="None"?s.sound:null,s.soundDesc||null,notes];
       vals.forEach((v,k)=>{ const cell=ws.getCell(r,k+1); cell.value=v; cell.font={name:"Arial",size:k===8?9:10,color:{argb:k===8?"FF57606A":INK},italic:k===8,bold:k===1}; cell.border=border; cell.alignment={horizontal:[5,7,8].includes(k)?"left":"center",vertical:"middle",wrapText:true}; });
       ws.getRow(r).height=ROWH;
-      if(f&&f.dataUrl){ const id=wb.addImage({base64:f.dataUrl,extension:"jpeg"}); ws.addImage(id,{tl:{col:2.02,row:r-1+0.03},ext:{width:430,height:242}}); }
+      if(f&&f.dataUrl){ const id=wb.addImage({base64:COMP[s.id]||f.dataUrl,extension:"jpeg"}); ws.addImage(id,{tl:{col:2.02,row:r-1+0.03},ext:{width:430,height:242}}); }
     });
     cf(ws,`E3:E${L}`,`AND(E3="Lower Thirds",COUNTIF($E$3:$E$${L},"Lower Thirds")>${cap})`,"FFC62828",WH,true,1);
     cf(ws,`A3:A${L}`,"LEN(A3)>0",MI,WH,true,2);
@@ -1281,7 +1283,7 @@ function stepExport(){
       gmsg,dmsg,
       ei.lastUrl?h("p",{class:"okc"},"Created. ",h("a",{href:ei.lastUrl,target:"_blank",rel:"noopener"},"Open the Google Sheet")):null
     ),
-    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn",onclick:saveProjectFile},"Save project file"),h("button",{class:"btn",onclick:openProjectFile},"Open project file"),h("button",{class:"btn ghost",onclick:newScript},"Start a new tech script"))
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(6)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn",onclick:saveProjectFile},"Save project file"),h("button",{class:"btn",onclick:openProjectFile},"Open project file"),h("button",{class:"btn ghost",onclick:newScript},"Start a new tech script"))
   ];
 }
 
@@ -1289,7 +1291,7 @@ function stepExport(){
 /* ---------- project files: move a draft between the Claude version and the Vercel version ---------- */
 async function saveProjectFile(){
   const data={kind:"tech-script-generator-project",version:1,savedAt:new Date().toISOString(),
-    project:S.project,shots:S.shots,music:S.music,tracks:S.tracks||[],missing:S.missing,analysis:S.analysis,
+    project:S.project,style:S.style||null,share:S.share?Object.assign({},S.share,{responses:null}):null,shots:S.shots,music:S.music,tracks:S.tracks||[],missing:S.missing,analysis:S.analysis,
     sources:S.sources.map(x=>Object.assign({},x)),frames:S.frames};
   const name=(S.exportInfo.sheetName||defaultName())+".tsg.json";
   const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
@@ -1303,7 +1305,7 @@ function openProjectFile(){
       const d=JSON.parse(await f.text());
       if(d.kind!=="tech-script-generator-project") throw new Error("That isn't a Tech Script Generator project file.");
       if(S.shots.length&&!confirm("Replace the current draft with "+f.name+"?")) return;
-      Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[]});
+      Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[],style:d.style||null,share:d.share||null});
       FILES.clear(); save(); go(S.shots.length?3:0);
     }catch(err){ alert("Couldn't open that file: "+err.message); }
   }});
@@ -1315,17 +1317,333 @@ function newScript(){
   if(!confirm("Start a new tech script?\n\nThis clears the current brief, shots, frames and music. Save a project file first if you want to keep it.")) return;
   const keep=S.exportInfo||{};
   S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5};
-  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null;
+  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null; S.style=null; S.share=null;
   S.exportInfo={sheetName:"",folderId:keep.folderId||"",folderName:keep.folderName||"My Drive",lastUrl:""};
   FILES.clear(); logLines=[]; try{ trackMsg=""; }catch(e){}
   if($("#dlg").open) $("#dlg").close();
   save(); go(0);
 }
 
+
+/* ===================== SUPERS: on-screen text designed in the game's look ===================== */
+const FONT_CHOICES=["Pixelify Sans","Press Start 2P","Silkscreen","Bebas Neue","Anton","Oswald","Barlow Condensed","Archivo Black","Bungee","Rubik Mono One","Orbitron","Audiowide","Russo One","Exo 2","Righteous","Cinzel","Cormorant Garamond","Playfair Display","Creepster","Special Elite","Montserrat","Poppins","Inter"];
+const SINGLE_WEIGHT=new Set(["Press Start 2P","Silkscreen","Bebas Neue","Anton","Archivo Black","Bungee","Rubik Mono One","Audiowide","Russo One","Righteous","Creepster","Special Elite"]);
+const PLATES=["none","bar","box","outline","underline"];
+const POSITIONS=["lower-left","lower-center","center","upper-left","upper-center"];
+const DEFAULT_STYLE={font:"Bebas Neue",weight:700,size:84,upper:true,tracking:0.06,text:"#FFFFFF",plate:"bar",plateColor:"#08071A",plateOpacity:0.85,accent:"#FF9999",position:"lower-left",shadow:true,why:""};
+function sty(){ if(!S.style) S.style=Object.assign({},DEFAULT_STYLE); return S.style; }
+const fontWeight=st=>SINGLE_WEIGHT.has(st.font)?400:((st.weight||700)>=600?700:400); // every listed family ships 400 and 700
+const loadedFonts=new Set();
+async function ensureFont(st){
+  const fam=st.font; if(!loadedFonts.has(fam)){ loadedFonts.add(fam);
+    const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+(SINGLE_WEIGHT.has(fam)?"":":wght@400;700")+"&display=swap"; document.head.append(l); }
+  try{ await document.fonts.load(fontWeight(st)+" 40px \""+fam+"\""); }catch(e){}
+}
+const superText=s=>{ const t=String(s.superText||"").trim(); return sty().upper?t.toUpperCase():t; };
+const hasSuper=s=>s.superType&&s.superType!=="None"&&String(s.superText||"").trim();
+/* Layout in a W×H frame (1920×1080 master). Returns geometry shared by SVG, canvas and After Effects. */
+const MC=document.createElement("canvas").getContext("2d");
+function layoutSuper(text,st,W,H){
+  const k=W/1920, fs=Math.round(st.size*k), fw=fontWeight(st);
+  MC.font=fw+" "+fs+"px \""+st.font+"\", sans-serif";
+  const trackPx=st.tracking*fs;
+  const lines=wrapLines(text,W*0.78,trackPx);
+  const widths=lines.map(l=>MC.measureText(l).width+trackPx*Math.max(0,l.length-1));
+  const lh=Math.round(fs*1.08), textW=Math.max(...widths,1), textH=lh*lines.length;
+  const padX=Math.round(fs*0.45), padY=Math.round(fs*0.28), m=Math.round(96*k);
+  const boxW=textW+padX*2, boxH=textH+padY*2;
+  let x,y,anchor="start";
+  const pos=st.position;
+  if(pos.endsWith("center")){ x=(W-boxW)/2; anchor="middle"; } else x=m;
+  if(pos.startsWith("lower")) y=H-m-boxH; else if(pos.startsWith("upper")) y=m; else y=(H-boxH)/2;
+  return {fs,fw,lh,lines,widths,textW,textH,padX,padY,box:{x,y,w:boxW,h:boxH},anchor,trackPx,k};
+  function wrapLines(t,maxW,tp){ const words=t.split(/\s+/); const out=[]; let cur="";
+    for(const w of words){ const tryL=cur?cur+" "+w:w; const width=MC.measureText(tryL).width+tp*tryL.length; if(width>maxW&&cur){ out.push(cur); cur=w; } else cur=tryL; }
+    if(cur) out.push(cur); return out.slice(0,3); }
+}
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+/* Editable SVG: plate + live text, named groups (Illustrator layers). */
+function superSVG(text,st,W=1920,H=1080,opts={}){
+  const L=layoutSuper(text,st,W,H), b=L.box;
+  const tx=L.anchor==="middle"?b.x+b.w/2:b.x+L.padX;
+  const fontCss=opts.embedFontLink?`<style>@import url('https://fonts.googleapis.com/css2?family=${encodeURIComponent(st.font).replace(/%20/g,"+")}${SINGLE_WEIGHT.has(st.font)?"":":wght@400;700"}&amp;display=swap');</style>`:"";
+  let plate="";
+  const op=st.plateOpacity;
+  if(st.plate==="bar") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${st.plateColor}" fill-opacity="${op}"/><rect x="${b.x}" y="${b.y+b.h-Math.max(3,Math.round(6*L.k))}" width="${b.w}" height="${Math.max(3,Math.round(6*L.k))}" fill="${st.accent}"/>`;
+  else if(st.plate==="box") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${Math.round(8*L.k)}" fill="${st.plateColor}" fill-opacity="${op}"/>`;
+  else if(st.plate==="outline") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${st.accent}" stroke-width="${Math.max(2,Math.round(5*L.k))}"/>`;
+  else if(st.plate==="underline") plate=`<rect x="${b.x+L.padX}" y="${b.y+b.h-L.padY*0.6}" width="${L.textW}" height="${Math.max(3,Math.round(7*L.k))}" fill="${st.accent}"/>`;
+  const shadow=st.shadow?`<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${Math.round(3*L.k)}" stdDeviation="${Math.round(4*L.k)}" flood-color="#000" flood-opacity="0.6"/></filter>`:"";
+  const lines=L.lines.map((ln,i)=>`<tspan x="${tx}" y="${b.y+L.padY+L.fs*0.86+i*L.lh}">${esc(ln)}</tspan>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${fontCss}<defs>${shadow}</defs>`+
+    (opts.background?`<g id="Reference_still" opacity="1"><image href="${opts.background}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/></g>`:"")+
+    `<g id="Plate">${plate}</g><g id="Text"${st.shadow?' filter="url(#sh)"':""}><text font-family="${esc(st.font)}, sans-serif" font-weight="${L.fw}" font-size="${L.fs}" letter-spacing="${(st.tracking*L.fs).toFixed(1)}" fill="${st.text}" text-anchor="${L.anchor}">${lines}</text></g></svg>`;
+}
+/* Canvas render (for burned-in stills and PNGs). */
+function drawSuper(ctx,text,st,W,H){
+  const L=layoutSuper(text,st,W,H), b=L.box; ctx.save();
+  const op=st.plateOpacity;
+  const hex=(c,a)=>{ const n=parseInt(String(c).slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
+  if(st.plate==="bar"){ ctx.fillStyle=hex(st.plateColor,op); ctx.fillRect(b.x,b.y,b.w,b.h); ctx.fillStyle=st.accent; const t=Math.max(3,Math.round(6*L.k)); ctx.fillRect(b.x,b.y+b.h-t,b.w,t); }
+  else if(st.plate==="box"){ ctx.fillStyle=hex(st.plateColor,op); ctx.beginPath(); (ctx.roundRect?ctx.roundRect(b.x,b.y,b.w,b.h,Math.round(8*L.k)):ctx.rect(b.x,b.y,b.w,b.h)); ctx.fill(); }
+  else if(st.plate==="outline"){ ctx.strokeStyle=st.accent; ctx.lineWidth=Math.max(2,Math.round(5*L.k)); ctx.strokeRect(b.x,b.y,b.w,b.h); }
+  else if(st.plate==="underline"){ ctx.fillStyle=st.accent; ctx.fillRect(b.x+L.padX,b.y+b.h-L.padY*0.6,L.textW,Math.max(3,Math.round(7*L.k))); }
+  ctx.font=L.fw+" "+L.fs+"px \""+st.font+"\", sans-serif"; ctx.fillStyle=st.text; ctx.textBaseline="alphabetic";
+  if("letterSpacing" in ctx) ctx.letterSpacing=(st.tracking*L.fs).toFixed(1)+"px";
+  if(st.shadow){ ctx.shadowColor="rgba(0,0,0,.6)"; ctx.shadowBlur=8*L.k; ctx.shadowOffsetY=3*L.k; }
+  ctx.textAlign=L.anchor==="middle"?"center":"left";
+  const tx=L.anchor==="middle"?b.x+b.w/2:b.x+L.padX;
+  L.lines.forEach((ln,i)=>ctx.fillText(ln,tx,b.y+L.padY+L.fs*0.86+i*L.lh));
+  ctx.restore();
+}
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+/* Still + super → JPEG data URL (used in the sheet, the brief page and downloads). */
+async function compositeStill(s,W=960){
+  const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
+  if(!hasSuper(s)) return f.dataUrl;
+  const st=sty(); await ensureFont(st);
+  const im=await loadImg(f.dataUrl); const H=Math.round(W*9/16);
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
+  const sc=Math.max(W/im.width,H/im.height); x.drawImage(im,(W-im.width*sc)/2,(H-im.height*sc)/2,im.width*sc,im.height*sc);
+  drawSuper(x,superText(s),st,W,H); return c.toDataURL("image/jpeg",0.85);
+}
+async function overlayPNG(s,W=1920,H=1080){ const st=sty(); await ensureFont(st); const c=document.createElement("canvas"); c.width=W; c.height=H; drawSuper(c.getContext("2d"),superText(s),st,W,H); return new Promise(r=>c.toBlob(r,"image/png")); }
+/* After Effects ExtendScript: one comp per super with an editable text layer + shape plate. */
+function aePostScript(st){ const base=st.font.replace(/\s+/g,""); return SINGLE_WEIGHT.has(st.font)?base+"-Regular":base+(fontWeight(st)>=700?"-Bold":"-Regular"); }
+function aeScript(items,st){
+  const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
+  const comps=items.map(it=>{ const L=layoutSuper(it.text,st,1920,1080), b=L.box;
+    return `{name:${JSON.stringify(it.name)},text:${JSON.stringify(L.lines.join("\r"))},still:${JSON.stringify(it.still||"")},bx:${b.x.toFixed(1)},by:${b.y.toFixed(1)},bw:${b.w.toFixed(1)},bh:${b.h.toFixed(1)},tx:${(L.anchor==="middle"?b.x+b.w/2:b.x+L.padX).toFixed(1)},ty:${(b.y+L.padY+L.fs*0.86).toFixed(1)}}`; }).join(",\n  ");
+  return `// Tech Script Generator — builds one After Effects comp per on-screen text card.
+// File > Scripts > Run Script File… and pick this file. Keep it in the same folder as the "stills" folder.
+// Font: ${st.font} (${aePostScript(st)}). Install it first (Google Fonts / Adobe Fonts) so the text layer uses it.
+(function(){
+app.beginUndoGroup("Tech Script supers");
+var here=File($.fileName).parent;
+var ST={font:${JSON.stringify(aePostScript(st))},size:${st.size},tracking:${Math.round(st.tracking*1000)},text:${rgb(st.text)},plate:${JSON.stringify(st.plate)},plateColor:${rgb(st.plateColor)},plateOpacity:${Math.round(st.plateOpacity*100)},accent:${rgb(st.accent)},center:${st.position.endsWith("center")},shadow:${!!st.shadow}};
+var CARDS=[
+  ${comps}
+];
+var folder=app.project.items.addFolder("Tech Script supers");
+for(var i=0;i<CARDS.length;i++){
+  var c=CARDS[i];
+  var comp=app.project.items.addComp(c.name,1920,1080,1,5,30); comp.parentFolder=folder;
+  if(c.still){ var f=new File(here.fsName+"/"+c.still); if(f.exists){ var foot=app.project.importFile(new ImportOptions(f)); foot.parentFolder=folder; var bg=comp.layers.add(foot); bg.name="Reference still (guide)"; bg.guideLayer=true; var s=Math.max(1920/foot.width,1080/foot.height)*100; bg.property("Scale").setValue([s,s]); } }
+  if(ST.plate!=="none"){
+    var sh=comp.layers.addShape(); sh.name="Plate";
+    var g=sh.property("Contents").addProperty("ADBE Vector Group");
+    var r=g.property("Contents").addProperty("ADBE Vector Shape - Rect");
+    var isLine=ST.plate==="underline";
+    r.property("Size").setValue(isLine?[c.bw-0,Math.max(4,ST.size*0.08)]:[c.bw,c.bh]);
+    r.property("Position").setValue([c.bx+c.bw/2,isLine?c.by+c.bh-ST.size*0.12:c.by+c.bh/2]);
+    if(ST.plate==="outline"){ var st=g.property("Contents").addProperty("ADBE Vector Graphic - Stroke"); st.property("Color").setValue(ST.accent); st.property("Stroke Width").setValue(5); }
+    else { var fl=g.property("Contents").addProperty("ADBE Vector Graphic - Fill"); fl.property("Color").setValue(isLine?ST.accent:ST.plateColor); fl.property("Opacity").setValue(isLine?100:ST.plateOpacity); }
+    if(ST.plate==="bar"){ var g2=sh.property("Contents").addProperty("ADBE Vector Group"); var r2=g2.property("Contents").addProperty("ADBE Vector Shape - Rect"); r2.property("Size").setValue([c.bw,6]); r2.property("Position").setValue([c.bx+c.bw/2,c.by+c.bh-3]); var f2=g2.property("Contents").addProperty("ADBE Vector Graphic - Fill"); f2.property("Color").setValue(ST.accent); }
+  }
+  var t=comp.layers.addText(c.text); t.name="Super text";
+  var d=t.property("Source Text").value;
+  try{ d.font=ST.font; }catch(e){}
+  d.fontSize=ST.size; d.fillColor=ST.text; d.applyFill=true; d.applyStroke=false; d.tracking=ST.tracking;
+  d.justification=ST.center?ParagraphJustification.CENTER_JUSTIFY:ParagraphJustification.LEFT_JUSTIFY;
+  t.property("Source Text").setValue(d);
+  t.property("Position").setValue([c.tx,c.ty]);
+  if(ST.shadow){ var ds=t.property("Effects").addProperty("ADBE Drop Shadow"); ds.property("Opacity").setValue(150); ds.property("Distance").setValue(3); ds.property("Softness").setValue(8); }
+}
+app.endUndoGroup();
+alert("Built "+CARDS.length+" super comps in the 'Tech Script supers' folder.");
+})();
+`;
+}
+const fileSafe=s=>String(s).replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,40)||"card";
+function superItems(){ const out=[]; cuts().forEach(c=>shotsOf(c).forEach((s,i)=>{ if(hasSuper(s)) out.push({s,cut:c,key:cutLabel(c)+"-"+pad(i+1),name:cutLabel(c)+" "+pad(i+1)+" - "+superText(s).slice(0,40),text:superText(s)}); })); return out; }
+async function downloadSupersZip(btn,msg){
+  if(!window.JSZip){ msg.textContent="The zip library didn't load. Check your connection and reload."; msg.className="err"; return; }
+  const items=superItems(); if(!items.length){ msg.textContent="No shots have on-screen text yet. Set Graphics + On-screen text on a shot first."; msg.className="err"; return; }
+  btn.disabled=true; msg.textContent="Building files…"; msg.className="note";
+  try{
+    const st=sty(); await ensureFont(st);
+    const z=new JSZip(), base=(S.exportInfo.sheetName||defaultName()).replace(/technical_script$/,"supers");
+    for(const it of items){
+      const nm=it.key+"_"+fileSafe(it.text);
+      z.file("svg/"+nm+".svg",superSVG(it.text,st,1920,1080,{embedFontLink:true}));
+      z.file("png_transparent/"+nm+".png",await overlayPNG(it.s));
+      const f=it.s.selected&&it.s.selected!=="none"?frameById(it.s.selected):null;
+      if(f&&f.dataUrl){
+        z.file("svg_with_reference_still/"+nm+".svg",superSVG(it.text,st,1920,1080,{embedFontLink:true,background:f.dataUrl}));
+        z.file("stills/"+nm+".jpg",f.dataUrl.split(",")[1],{base64:true});
+        const comp=await compositeStill(it.s,1920); if(comp) z.file("stills_with_supers/"+nm+".jpg",comp.split(",")[1],{base64:true});
+        it.still="stills/"+nm+".jpg";
+      }
+    }
+    z.file("after_effects/build_supers.jsx",aeScript(items.map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
+    z.file("README.txt",`On-screen text (supers) — ${S.project.game||""}
+Font: ${st.font} (${fontWeight(st)}). Install it from Google Fonts or Adobe Fonts before opening the files.
+Colours: text ${st.text}, plate ${st.plateColor} at ${Math.round(st.plateOpacity*100)}%, accent ${st.accent}. Plate: ${st.plate}. Position: ${st.position}.
+
+svg/ — editable vector cards at 1920x1080 (live text, Plate and Text layers). Open in Illustrator; save as .ai to import into After Effects as a layered comp.
+svg_with_reference_still/ — the same cards over the chosen still, for layout reference.
+png_transparent/ — 1920x1080 transparent PNGs, drop straight into Premiere / After Effects.
+stills/ and stills_with_supers/ — the chosen frames, clean and with the card.
+after_effects/build_supers.jsx — File > Scripts > Run Script File… in After Effects: builds one comp per card with an editable text layer, a shape-layer plate and the still as a guide layer.
+`);
+    const blob=await z.generateAsync({type:"blob"});
+    await DL.save({filename:base+".zip",data:blob});
+    msg.textContent="Saved "+items.length+" card(s) as SVG, PNG and an After Effects script."; msg.className="okc";
+  }catch(e){ msg.textContent=e&&e.code==="declined"?"Download cancelled.":"Couldn't build the files: "+((e&&e.message)||"unknown error"); msg.className="err"; }
+  btn.disabled=false;
+}
+async function suggestStyle(btn,msg){
+  btn.disabled=true; msg.textContent="Reading the brief for the game's look…"; msg.className="note";
+  try{
+    const out=await SAMPLE.json(`Answer with valid JSON only.\nYou design on-screen text cards (supers) for a game trailer so they match the game's art style.\n\nPROJECT\n${projectText()}\n\nPick ONE font from this list only: ${FONT_CHOICES.join(", ")}.\nReturn ONLY JSON: {"font":"","weight":700,"upper":true,"tracking":0.06,"size":84,"text":"#RRGGBB","plate":"${PLATES.join("|")}","plateColor":"#RRGGBB","plateOpacity":0.85,"accent":"#RRGGBB","position":"${POSITIONS.join("|")}","shadow":true,"why":"one sentence"}`,{modelTier:"quick",cache:false});
+    const st=sty();
+    if(FONT_CHOICES.includes(out.font)) st.font=out.font;
+    const hexOk=v=>/^#[0-9a-f]{6}$/i.test(v||"");
+    ["text","plateColor","accent"].forEach(k=>{ if(hexOk(out[k])) st[k]=out[k].toUpperCase(); });
+    if(PLATES.includes(out.plate)) st.plate=out.plate; if(POSITIONS.includes(out.position)) st.position=out.position;
+    ["size","tracking","plateOpacity","weight"].forEach(k=>{ if(typeof out[k]==="number"&&isFinite(out[k])) st[k]=out[k]; });
+    st.size=Math.min(160,Math.max(36,st.size)); st.tracking=Math.min(0.3,Math.max(-0.05,st.tracking)); st.plateOpacity=Math.min(1,Math.max(0,st.plateOpacity));
+    if(typeof out.upper==="boolean") st.upper=out.upper; if(typeof out.shadow==="boolean") st.shadow=out.shadow;
+    st.why=out.why||""; save(); render();
+  }catch(e){ msg.textContent="Couldn't suggest a look: "+((e&&e.message)||"unknown error"); msg.className="err"; btn.disabled=false; }
+}
+function stepSupers(){
+  const st=sty(); ensureFont(st).then(()=>{ document.querySelectorAll("[data-super-preview]").forEach(el=>el.dispatchEvent(new Event("redraw"))); });
+  const items=superItems();
+  const set=(k,v)=>{ st[k]=v; save(); refresh(); };
+  const fld=(label,el)=>h("label",{class:"f"},label,el);
+  const color=(k)=>{ const i=h("input",{type:"color",value:st[k],style:"height:38px;padding:2px"}); i.addEventListener("input",e=>set(k,e.target.value.toUpperCase())); return i; };
+  const range=(k,min,max,step)=>{ const i=h("input",{type:"range",min,max,step,value:st[k]}); i.addEventListener("input",e=>set(k,Number(e.target.value))); return i; };
+  const selectOf=(k,opts)=>h("select",{onchange:e=>{ set(k,e.target.value); if(k==="font") ensureFont(st).then(refresh); }},opts.map(o=>h("option",{value:o,selected:st[k]===o},o)));
+  const check=(k,label)=>{ const c=h("input",{type:"checkbox",checked:!!st[k]}); c.addEventListener("change",e=>set(k,e.target.checked)); return h("label",{class:"row",style:"font-size:14px"},c,label); };
+  const grid=h("div",{style:"display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-top:14px"});
+  function refresh(){
+    grid.replaceChildren(...(items.length?items:[{demo:true,text:superTextDemo(),key:"Preview",s:null}]).map(it=>{
+      const f=it.s&&it.s.selected&&it.s.selected!=="none"?frameById(it.s.selected):null;
+      const box=h("div",{style:"position:relative;aspect-ratio:16/9;background:#08071A;border-radius:6px;overflow:hidden"});
+      if(f&&f.dataUrl) box.append(h("img",{src:f.dataUrl,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
+      const holder=h("div",{style:"position:absolute;inset:0"}); holder.innerHTML=superSVG(it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); box.append(holder);
+      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px"},h("b",null,it.key),h("span",{class:"note"},it.demo?"Sample — add on-screen text to shots to see them here":(it.s.superType))));
+    }));
+  }
+  function superTextDemo(){ return st.upper?(S.project.game||"Your game").toUpperCase()+" — COMING SOON":(S.project.game||"Your game")+" — coming soon"; }
+  refresh();
+  const msg=h("p",{class:"note"}), dmsg=h("p",{class:"note"});
+  return [
+    h("h1",null,"Supers — on-screen text"),
+    h("p",{class:"lede"},"Design the text cards in the game's look. They're overlaid on each shot's still, burned into the sheet and the developer brief, and downloadable as editable SVG, transparent PNG and an After Effects script."),
+    h("div",{class:"panel"},
+      h("div",{class:"row"},h("b",null,"Look"),st.why?h("span",{class:"note"},st.why):null,h("span",{class:"spacer"}),h("button",{class:"btn primary small",disabled:!SAMPLE,onclick:e=>suggestStyle(e.currentTarget,msg)},"Suggest a look from the brief"),h("button",{class:"btn small",onclick:()=>{ S.style=Object.assign({},DEFAULT_STYLE); save(); render(); }},"Reset")),
+      msg,
+      h("div",{class:"grid2",style:"margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"},
+        fld("Font",selectOf("font",FONT_CHOICES)), fld("Size",range("size",36,160,2)), fld("Letter spacing",range("tracking",-0.05,0.3,0.01)),
+        fld("Text colour",color("text")), fld("Plate",selectOf("plate",PLATES)), fld("Plate colour",color("plateColor")),
+        fld("Plate opacity",range("plateOpacity",0,1,0.05)), fld("Accent",color("accent")), fld("Position",selectOf("position",POSITIONS)),
+        h("div",{class:"f"},"Options",check("upper","ALL CAPS"),check("shadow","Drop shadow"))),
+      h("p",{class:"note"},"Fonts are Google Fonts (most are also on Adobe Fonts), so the downloaded files open with live, editable text once the font is installed.")),
+    h("div",{class:"row",style:"margin-top:16px"},h("b",null,items.length+" card(s)"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download supers (SVG · PNG · After Effects)")),
+    dmsg, grid,
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("button",{class:"btn primary",onclick:()=>go(6)},"Continue to share"))
+  ];
+}
+
+
+/* ===================== SHARE: developer brief page ===================== */
+function shr(){ if(!S.share) S.share={uploadLink:"",deadline:"",contact:"",message:"",summary:"",captureList:[],settings:"",briefId:"",briefUrl:"",publishedAt:"",responses:null}; return S.share; }
+async function stillForBrief(s){
+  const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
+  const im=await loadImg(f.dataUrl); const W=640, H=360; const c=document.createElement("canvas"); c.width=W; c.height=H;
+  const x=c.getContext("2d"); const sc=Math.max(W/im.width,H/im.height); x.drawImage(im,(W-im.width*sc)/2,(H-im.height*sc)/2,im.width*sc,im.height*sc);
+  return c.toDataURL("image/jpeg",0.72);
+}
+async function buildBriefPayload(){
+  const p=S.project, sh=shr(), st=sty();
+  const out={game:p.game||"Untitled",platform:p.platform,aspect:p.aspect,message:sh.message,uploadLink:sh.uploadLink,deadline:sh.deadline,contact:sh.contact,
+    summary:sh.summary,captureList:sh.captureList||[],settings:sh.settings,style:st,cuts:[],music:{tracks:(S.tracks||[]).filter(t=>(t.url||t.name)&&!/⚠/.test(t.notes||"")&&t.source!=="Developer suggestion").map(t=>({source:t.source,name:t.name,url:t.url,mood:t.mood,energy:t.energy,notes:t.notes})),directions:(S.music||[]).map(m=>({option:m.option,direction:m.direction,mood:m.mood,energy:m.energy}))}};
+  for(const c of cuts()){
+    const list=shotsOf(c), shots=[]; let prev=null, n=0;
+    for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
+      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
+    out.cuts.push({label:cutLabel(c),name:c==="Other"?(p.videoTypeOther||"Other"):c,duration:p.durations[c]||"",shots});
+  }
+  return out;
+}
+async function writeDevSummary(btn,msg){
+  btn.disabled=true; msg.textContent="Writing the capture summary…"; msg.className="note";
+  try{
+    const shots=cuts().map(c=>cutLabel(c)+":\n"+shotsOf(c).map((s,i)=>cutLabel(c)+"-"+pad(i+1)+": "+s.desc).join("\n")).join("\n");
+    const out=await SAMPLE.json(`Answer with valid JSON only.\nYou write the capture request a game developer receives from a trailer editor. Be concise, friendly and practical. Group shots by where/what to capture (level, mode, menu), merge duplicates across cuts, and never invent features.\n\nPROJECT\n${projectText()}\n\nSHOTS\n${shots}\n\nReturn ONLY JSON: {"summary":"2-3 sentence overview of what we need and why","captureList":[{"group":"e.g. Zone 3 — volcanic","items":["what to record, one line each"],"shots":["RDA-01"]}],"settings":"capture settings in one line (resolution, frame rate, HUD on/off, no motion blur, etc.)"}`,{modelTier:"default",cache:false});
+    const sh=shr(); sh.summary=out.summary||sh.summary; if(Array.isArray(out.captureList)) sh.captureList=out.captureList.filter(g=>g&&g.group).slice(0,30); sh.settings=out.settings||sh.settings; save(); render();
+  }catch(e){ msg.textContent="Couldn't write the summary: "+((e&&e.message)||"unknown error"); msg.className="err"; btn.disabled=false; }
+}
+function derivedCaptureList(){ return cuts().map(c=>({group:cutLabel(c)+" shots",items:shotsOf(c).map((s,i)=>pad(i+1)+" · "+s.desc),shots:[]})); }
+async function publishBrief(btn,msg){
+  if(!window.TSG_SERVER){ msg.textContent="Brief pages are published from the Vercel version: tech-script-generator.vercel.app"; msg.className="err"; return; }
+  const sh=shr(); if(!sh.uploadLink){ if(!confirm("There's no footage upload link yet. Publish anyway?")) return; }
+  btn.disabled=true; msg.textContent="Preparing stills and supers…"; msg.className="note";
+  try{
+    const brief=await buildBriefPayload();
+    if(!brief.captureList.length) brief.captureList=derivedCaptureList();
+    const body=JSON.stringify({id:sh.briefId||undefined,brief});
+    if(body.length>4.2e6) throw new Error("The brief is too large to publish ("+(body.length/1e6).toFixed(1)+" MB). Remove some shots or stills.");
+    msg.textContent="Publishing…";
+    const t=await token();
+    const r=await fetch("/api/brief",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||("Publishing failed ("+r.status+")"));
+    sh.briefId=j.id; sh.briefUrl=j.url; sh.publishedAt=new Date().toISOString(); save(); render();
+  }catch(e){ msg.textContent=(e&&e.message)||"Publishing failed."; msg.className="err"; btn.disabled=false; }
+}
+async function loadResponses(btn,box){
+  const sh=shr(); btn.disabled=true; box.replaceChildren(h("p",{class:"note"},"Loading responses…"));
+  try{ const t=await token(); const r=await fetch("/api/brief-responses?id="+sh.briefId,{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    sh.responses=j.responses||[]; save();
+    box.replaceChildren(...(sh.responses.length?sh.responses.map(x=>h("div",{class:"panel",style:"margin-top:10px"},
+      h("div",{class:"row"},h("b",null,(x.name||"Someone")+(x.studio?" · "+x.studio:"")),h("span",{class:"note"},new Date(x.receivedAt).toLocaleString()),x.footageUploaded?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Footage uploaded"):null),
+      x.musicChoice?h("p",null,h("b",null,"Music pick: "),x.musicChoice):null,
+      (x.licensedMusic||[]).length?h("div",null,h("b",null,"Licensed music they suggest:"),h("ul",null,x.licensedMusic.map(m=>h("li",null,(m.title||"Track")+" ",m.link?h("a",{href:m.link,target:"_blank",rel:"noopener"},"link"):null,m.license?" — "+m.license:"")))):null,
+      x.notes?h("p",{style:"white-space:pre-wrap"},x.notes):null,
+      Object.keys(x.shotNotes||{}).length?h("div",null,h("b",null,"Shot notes:"),h("ul",null,Object.entries(x.shotNotes).map(([k,v])=>h("li",null,h("b",null,k+": "),v)))):null,
+      (x.licensedMusic||[]).length?h("button",{class:"btn small",onclick:()=>{ x.licensedMusic.forEach(m=>S.tracks.push({id:uid(),source:"Developer suggestion",name:m.title,url:m.link,mood:"",energy:"",notes:(m.license?"License: "+m.license+"\n":"")+"Suggested by "+(x.name||"the developer"),locked:true})); save(); alert("Added to Music."); }},"Add their tracks to Music"):null
+    )):[h("p",{class:"note"},"No responses yet.")]));
+  }catch(e){ box.replaceChildren(h("p",{class:"err"},"Couldn't load responses: "+((e&&e.message)||e))); }
+  btn.disabled=false;
+}
+function stepShare(){
+  const sh=shr();
+  const fld=(label,k,opts={})=>{ const el=opts.area?h("textarea",{rows:opts.rows||3,placeholder:opts.ph||""}):h("input",{type:"text",placeholder:opts.ph||""}); el.value=sh[k]||""; el.addEventListener("input",e=>{ sh[k]=e.target.value; save(); }); return h("label",{class:"f"+(opts.wide?" wide":"")},label,opts.hint?h("span",{class:"h"},opts.hint):null,el); };
+  const msg=h("p",{class:"note"}), smsg=h("p",{class:"note"}), respBox=h("div");
+  const cl=sh.captureList&&sh.captureList.length?sh.captureList:derivedCaptureList();
+  return [
+    h("h1",null,"Share with the developers"),
+    h("p",{class:"lede"},"Publish a brief page for the dev team: a summary of what to record, every shot with its still and on-screen text, where to upload footage, and a place to pick suggested music or send their own licensed tracks. Their replies come back here."),
+    h("div",{class:"panel"},h("div",{class:"grid2"},
+      fld("Footage upload link","uploadLink",{ph:"Drive folder link the devs should upload to",hint:"Share the folder with them as Editor first."}),
+      fld("Deadline","deadline",{ph:"e.g. Friday 14 Nov"}),
+      fld("Contact","contact",{ph:"Name and Slack / email"}),
+      fld("Message to the team","message",{area:true,wide:true,ph:"A short hello and what this brief is for"})),
+      h("p",{class:"note",style:"margin-top:8px"},"Music on the page: tracks flagged as possibly another game's mix are left off. Drive tracks only play for the developers if the files are shared with them.")),
+    h("div",{class:"panel",style:"margin-top:16px"},
+      h("div",{class:"row"},h("b",null,"What to record"),h("span",{class:"spacer"}),h("button",{class:"btn small primary",disabled:!SAMPLE,onclick:e=>writeDevSummary(e.currentTarget,smsg)},sh.summary?"Rewrite summary":"Write the summary")),smsg,
+      fld("Summary","summary",{area:true,rows:3,wide:true}),
+      h("div",{style:"margin-top:8px"},cl.map(g=>h("div",{style:"margin-top:8px"},h("b",null,g.group),h("ul",{style:"margin:4px 0 0"},(g.items||[]).map(it=>h("li",null,it)))))),
+      fld("Capture settings","settings",{ph:"e.g. 1080p+ at 60 fps, HUD on, no motion blur, record each moment 3–5 s with handles",wide:true})),
+    h("div",{class:"panel",style:"margin-top:16px"},
+      h("div",{class:"row"},h("b",null,"Brief page"),h("span",{class:"spacer"}),
+        h("button",{class:"btn primary",onclick:e=>publishBrief(e.currentTarget,msg)},sh.briefId?"Update brief page":"Publish brief page"),
+        sh.briefUrl?h("a",{class:"btn",href:sh.briefUrl,target:"_blank",rel:"noopener"},"Open"):null,
+        sh.briefUrl?h("button",{class:"btn",onclick:()=>navigator.clipboard.writeText(sh.briefUrl).then(()=>{ msg.textContent="Link copied."; msg.className="okc"; })},"Copy link"):null),
+      msg,
+      sh.briefUrl?h("p",null,"Link for the developers: ",h("a",{href:sh.briefUrl,target:"_blank",rel:"noopener"},sh.briefUrl),h("span",{class:"note"}," · published "+new Date(sh.publishedAt).toLocaleString()+". Anyone with the link can view it; updating keeps the same link.")):h("p",{class:"note"},"Not published yet."),
+      sh.briefId?h("div",{style:"margin-top:12px"},h("div",{class:"row"},h("b",null,"Developer responses"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check for responses")),respBox):null),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(5)},"Back"),h("button",{class:"btn primary",onclick:()=>go(7)},"Continue to export"))
+  ];
+}
+
 /* ---------- render ---------- */
 function render(){
   renderRail();
-  const views=[stepBrief,stepSources,stepAnalyse,stepReview,stepMusic,stepExport];
+  const views=[stepBrief,stepSources,stepAnalyse,stepReview,stepMusic,stepSupers,stepShare,stepExport];
   $("#main").replaceChildren(...views[S.step]().flat().filter(Boolean));
   updateCounter();
 }

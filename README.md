@@ -15,7 +15,10 @@ AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 | `api/claude.js` | The route the app calls for AI. Only @indie.io Google accounts can use it. |
 | `api/health.js` | Open `/api/health` to check the Rupert connection. |
 | `api/config.js` | Gives the page the Google client ID. |
-| `vercel.json` | Timeout + service-worker headers. |
+| `brief.html` | The developer brief page (`/b/<id>`). |
+| `api/brief.js`, `api/brief-response.js`, `api/brief-responses.js` | Publish briefs, receive and read developer replies. |
+| `api/_store.js`, `api/_auth.js` | Blob storage + indie.io sign-in check. |
+| `vercel.json` | Timeout, `/b/<id>` route, service-worker headers. |
 
 ## Environment variables (Vercel → project → Environment Variables → Production)
 
@@ -34,6 +37,16 @@ You can delete the old `ANTHROPIC_API_KEY` variable — it isn't used any more.
 After adding or changing variables: **Deployments → ⋯ → Redeploy**.
 
 The Cloudflare token expires **2027-10-19** — ask for a new one before then.
+
+## Developer brief pages (Share step) — one-off setup
+
+Brief pages and developer replies are stored in **Vercel Blob**:
+1. Vercel → your project → **Storage** → **Create** → **Blob** → name it (e.g. `tech-script-briefs`) → **Connect** to this project.
+   That adds `BLOB_READ_WRITE_TOKEN` automatically.
+2. Redeploy.
+
+Brief links look like `https://tech-script-generator.vercel.app/b/<id>`. Anyone with the link can view the page and send
+a reply (no sign-in), so share it only with the dev team. Publishing again keeps the same link.
 
 ## Check it
 
@@ -58,6 +71,15 @@ Vercel URL in **Authorized JavaScript origins**.
 - Stills sent to the AI are shrunk to stay under Vercel's 4.5 MB request limit.
 - Drive streaming re-fetches your Google sign-in if it expires mid-session.
 - Footage that looks the same throughout still yields at least 8 stills per clip.
+
+## Supers (on-screen text)
+
+The **Supers** step designs text cards in the game's look (font, colours, plate, position — or **Suggest a look from the brief**).
+They're overlaid on stills in the sheet and the brief page, and **Download supers** gives:
+- `svg/` — editable vector cards (live text, Plate/Text layers) for Illustrator → save as .ai → import into After Effects
+- `png_transparent/` — 1920×1080 overlays
+- `after_effects/build_supers.jsx` — File → Scripts → Run Script File… builds one comp per card with an editable text layer
+Install the font (Google Fonts / Adobe Fonts) first so text stays live.
 
 ## Limits
 
