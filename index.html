@@ -177,6 +177,7 @@ table.qc td:first-child{width:28px}
   <nav class="rail" aria-label="Steps">
     <div class="brand">Tech Script<br>Generator<small>indie.io creative</small></div>
     <ol class="steps" id="steps"></ol>
+    <button class="btn small" id="newScriptBtn" style="background:#1B1840;border-color:#373278;color:#fff;align-self:flex-start">＋ New tech script</button>
     <div class="foot"><div id="authBox"></div><div id="savedNote" style="margin-top:8px">Drafts save in this browser.</div></div>
   </nav>
   <main id="main"></main>
@@ -380,6 +381,7 @@ function stepBrief(){
   const p=S.project;
   const briefFile=h("input",{type:"file",accept:".txt,.md,.csv,text/plain,text/markdown",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; p.brief=(p.brief?p.brief+"\n\n":"")+await f.text(); save(); render(); }});
   return [
+    h("div",{class:"row",style:"float:right"},h("button",{class:"btn small",onclick:openProjectFile},"Open project file")),
     h("h1",null,"Start with the brief"),
     h("p",{class:"lede"},"Fill in what you already know. Anything left blank is treated as unknown and flagged for confirmation instead of guessed."),
     h("div",{class:"grid2"},
@@ -708,6 +710,7 @@ function stepAnalyse(){
       !S.project.brief?h("p",{class:"err"},"There's no brief yet. Add one on the Brief step for useful results."):null,
       (()=>{ const unread=S.sources.filter(x=>isLink(x)&&/video|drive file/i.test(x.linkType||"")&&!canPlay(x)); return unread.length?h("div",{class:"panel",style:"margin:10px 0;background:var(--lav)"},h("b",null,unread.length+" linked video(s) can't be scanned yet. "),GTOKEN?"These links aren't recognised as Drive videos. Re-add them as Drive file or folder links.":"Sign in with Google so the tool can stream them from Drive.",h("div",{class:"row",style:"margin-top:8px"},GTOKEN?null:h("button",{class:"btn small primary",onclick:()=>signIn(true).then(()=>render())},"Sign in with Google"))):null; })(),
       !GTOKEN?h("p",{class:"err"},"Sign in with Google (left panel) to run the analysis."):null,
+      CFG.aiReady===false?h("div",{class:"panel",style:"margin:10px 0;background:var(--lav)"},h("b",null,"AI isn't connected here yet "),"(waiting on the Cloudflare token for Rupert). Meanwhile: plan the shots in the Claude version of the tool, click Save project file on its Export step, then Open project file here — you can capture frames from Drive and export the sheet straight away.",h("div",{class:"row",style:"margin-top:8px"},h("a",{class:"btn small",href:"https://claude.ai/artifact/RKkUGWc19XDhZocTHHF1Ri",target:"_blank",rel:"noopener"},"Open the Claude version"),h("button",{class:"btn small",onclick:openProjectFile},"Open project file"))):null,
       S.shots.length?h("p",{class:"note"},"Running again replaces the current "+S.shots.length+" shots. Frames you captured or uploaded by hand are kept."):null,
       h("div",{class:"row"},
         S.shots.length?h("button",{class:"btn primary",disabled:busy||!SAMPLE,onclick:()=>fillFrames()},"Keep my shots — auto-select frames"):null,
@@ -1237,8 +1240,45 @@ function stepExport(){
       gmsg,dmsg,
       ei.lastUrl?h("p",{class:"okc"},"Created. ",h("a",{href:ei.lastUrl,target:"_blank",rel:"noopener"},"Open the Google Sheet")):null
     ),
-    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn ghost",onclick:()=>{ if(confirm("Start a new tech script? This clears the current draft.")){ const keep=S.exportInfo; S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5}; S.activeCut=null; S.sources=[];S.frames=[];S.shots=[];S.music=[];S.missing=[];S.analysis=null; S.exportInfo={sheetName:"",folderId:keep.folderId,folderName:keep.folderName,lastUrl:""}; FILES.clear(); logLines=[]; go(0);} }},"Start a new tech script"))
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn",onclick:saveProjectFile},"Save project file"),h("button",{class:"btn",onclick:openProjectFile},"Open project file"),h("button",{class:"btn ghost",onclick:newScript},"Start a new tech script"))
   ];
+}
+
+
+/* ---------- project files: move a draft between the Claude version and the Vercel version ---------- */
+async function saveProjectFile(){
+  const data={kind:"tech-script-generator-project",version:1,savedAt:new Date().toISOString(),
+    project:S.project,shots:S.shots,music:S.music,tracks:S.tracks||[],missing:S.missing,analysis:S.analysis,
+    sources:S.sources.map(x=>Object.assign({},x)),frames:S.frames};
+  const name=(S.exportInfo.sheetName||defaultName())+".tsg.json";
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  try{ if(DL&&DL.save) await DL.save({filename:name,data:blob}); else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); } }
+  catch(e){ if(!(e&&e.code==="declined")) alert("Couldn't save the project file: "+((e&&e.message)||"unknown error")); }
+}
+function openProjectFile(){
+  const inp=h("input",{type:"file",accept:".json,application/json",class:"hidden",onchange:async e=>{
+    const f=e.target.files[0]; inp.remove(); if(!f) return;
+    try{
+      const d=JSON.parse(await f.text());
+      if(d.kind!=="tech-script-generator-project") throw new Error("That isn't a Tech Script Generator project file.");
+      if(S.shots.length&&!confirm("Replace the current draft with "+f.name+"?")) return;
+      Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[]});
+      FILES.clear(); save(); go(S.shots.length?3:0);
+    }catch(err){ alert("Couldn't open that file: "+err.message); }
+  }});
+  document.body.append(inp); inp.click();
+}
+
+
+function newScript(){
+  if(!confirm("Start a new tech script?\n\nThis clears the current brief, shots, frames and music. Save a project file first if you want to keep it.")) return;
+  const keep=S.exportInfo||{};
+  S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5};
+  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null;
+  S.exportInfo={sheetName:"",folderId:keep.folderId||"",folderName:keep.folderName||"My Drive",lastUrl:""};
+  FILES.clear(); logLines=[]; try{ trackMsg=""; }catch(e){}
+  if($("#dlg").open) $("#dlg").close();
+  save(); go(0);
 }
 
 /* ---------- render ---------- */
@@ -1248,7 +1288,7 @@ function render(){
   $("#main").replaceChildren(...views[S.step]().flat().filter(Boolean));
   updateCounter();
 }
-(async()=>{ await load(); render(); lightUp(); })();
+(async()=>{ await load(); render(); lightUp(); $("#newScriptBtn").addEventListener("click",newScript); })();
 </script>
 </body>
 </html>
