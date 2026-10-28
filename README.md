@@ -15,7 +15,8 @@ AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 | `api/claude.js` | The route the app calls for AI. Only @indie.io Google accounts can use it. |
 | `api/health.js` | Open `/api/health` to check the Rupert connection. |
 | `api/config.js` | Gives the page the Google client ID. |
-| `brief.html` | The developer brief page (`/b/<id>`). |
+| `brief.html` | The developer page (`/b/<id>`): tabs per trailer, recording tips, music with preview + choose. |
+| `vendor/` | ExcelJS, JSZip and the MP3 encoder (music previews), bundled so nothing depends on a CDN. |
 | `api/brief.js`, `api/brief-response.js`, `api/brief-responses.js` | Publish briefs, receive and read developer replies. |
 | `api/_store.js`, `api/_auth.js` | Blob storage + indie.io sign-in check. |
 | `vercel.json` | Timeout, `/b/<id>` route, service-worker headers. |

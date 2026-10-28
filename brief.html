@@ -3,79 +3,106 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Trailer capture brief · indie.io</title>
+<title>Capture brief · indie.io</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
 :root{
-  --bg:#F2F1FB; --surface:#FFFFFF; --fg:#16142E; --muted:#5B5880; --line:#DAD7F2; --accent:#373278;
-  --card-bg:#08071A; --card-fg:#FFFFFF; --card-accent:#FF9999; --flag:#7A3D12; --flag-bg:#FBEFE3; --ok:#2F7A4E;
-  --display:"Bebas Neue",Impact,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
-  color-scheme:light; box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#F5F5F7; --card:#FFFFFF; --fg:#1D1D1F; --muted:#6E6E73; --sep:rgba(60,60,67,.14); --fill:rgba(120,120,128,.12);
+  --accent:#373278; --accent-fg:#FFFFFF; --pink:#FF9999; --ok:#248A3D; --warn:#B25000;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Inter,system-ui,sans-serif;
+  --r:18px; color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B0A1C; --surface:#14122E; --fg:#ECEAFF; --muted:#A9A5D6; --line:#2C2858; --accent:#9C96F5; --flag:#F2A764; --flag-bg:#2A1D10; --ok:#7FD4A0; color-scheme:dark } }
-:root[data-theme="dark"]{ --bg:#0B0A1C; --surface:#14122E; --fg:#ECEAFF; --muted:#A9A5D6; --line:#2C2858; --accent:#9C96F5; --flag:#F2A764; --flag-bg:#2A1D10; --ok:#7FD4A0; color-scheme:dark }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#000000; --card:#1C1C1E; --fg:#F5F5F7; --muted:#98989D; --sep:rgba(84,84,88,.5); --fill:rgba(120,120,128,.24); --accent:#9C96F5; --accent-fg:#0B0A1C; --ok:#30D158; --warn:#FF9F0A; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#000000; --card:#1C1C1E; --fg:#F5F5F7; --muted:#98989D; --sep:rgba(84,84,88,.5); --fill:rgba(120,120,128,.24); --accent:#9C96F5; --accent-fg:#0B0A1C; --ok:#30D158; --warn:#FF9F0A; color-scheme:dark }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);padding:32px max(16px,env(safe-area-inset-left,0px)) 64px max(16px,env(safe-area-inset-right,0px))}
-.wrap{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
-.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-h1{font:700 clamp(34px,7vw,56px)/1.02 var(--display);margin:6px 0 10px;letter-spacing:.01em;text-wrap:balance}
-h2{font:700 clamp(22px,4vw,30px)/1.1 var(--display);margin:0 0 14px;letter-spacing:.01em}
-h3{font:700 17px var(--body);margin:0 0 6px}
-p{margin:0;max-width:68ch}
-.lede{color:var(--muted);white-space:pre-wrap}
-.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.facts span{font:500 13px var(--mono);border:1px solid var(--line);background:var(--surface);padding:4px 10px;border-radius:4px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:20px}
-.upload{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;border-left:6px solid var(--card-accent)}
-.btn{display:inline-flex;align-items:center;gap:8px;font:700 15px var(--body);border-radius:6px;padding:11px 18px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;text-decoration:none}
-.btn.primary{background:var(--card-bg);color:var(--card-fg);border-color:var(--card-bg);box-shadow:inset 0 -3px 0 var(--card-accent)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.small{font-size:14px;color:var(--muted)}
-ul{margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
-.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:14px}
-.groups > div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px}
-.tag{font:500 12px var(--mono);color:var(--muted)}
-.shots{display:flex;flex-direction:column;gap:14px}
-.shot{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.47 var(--sans);-webkit-font-smoothing:antialiased;
+  padding:44px max(20px,env(safe-area-inset-left,0px)) 80px max(20px,env(safe-area-inset-right,0px))}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+.brand{font-weight:600;font-size:13px;letter-spacing:.02em;color:var(--muted);display:flex;align-items:center;gap:8px}
+.brand i{width:8px;height:8px;border-radius:50%;background:var(--pink);display:inline-block}
+h1{font-size:clamp(34px,6vw,48px);line-height:1.05;letter-spacing:-.025em;font-weight:700;margin:10px 0 8px}
+h2{font-size:24px;letter-spacing:-.015em;font-weight:700;margin:0 0 14px}
+p{margin:0}
+.sub{color:var(--muted);font-size:19px;line-height:1.4;white-space:pre-wrap;max-width:60ch}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.pills span{background:var(--fill);color:var(--fg);font-size:14px;font-weight:500;padding:6px 12px;border-radius:999px}
+.card{background:var(--card);border-radius:var(--r);padding:22px}
+.btn{appearance:none;border:0;border-radius:12px;padding:12px 20px;font:600 16px var(--sans);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;background:var(--fill);color:var(--accent)}
+.btn.fill{background:var(--accent);color:var(--accent-fg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:8px 14px;font-size:15px;border-radius:10px}
+.row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.spacer{flex:1}
+.muted{color:var(--muted)} .small{font-size:15px}
+.upload{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.upload .ic{width:48px;height:48px;border-radius:12px;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:24px}
+.tips{display:flex;flex-wrap:wrap;gap:10px}
+.tips div{background:var(--card);padding:16px 18px;border-radius:14px;flex:1 1 150px}
+.tips b{display:block;font-size:20px;letter-spacing:-.01em}
+.tips span{color:var(--muted);font-size:14px}
+.seg{display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px}
+.seg button{appearance:none;border:0;background:transparent;color:var(--fg);font:600 15px var(--sans);padding:7px 18px;border-radius:8px;cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+.note{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);padding:10px 14px;border-radius:12px;margin-bottom:14px}
+.list{display:flex;flex-direction:column;gap:14px}
+.shot{background:var(--card);border-radius:var(--r);overflow:hidden;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 @media (max-width:720px){.shot{grid-template-columns:1fr}}
-.still{position:relative;aspect-ratio:16/9;background:#000;border-radius:5px;overflow:hidden}
+.still{position:relative;aspect-ratio:16/9;background:#111}
 .still img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .still svg{position:absolute;inset:0;width:100%;height:100%}
-.still .need{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cfcbf5;font:500 13px var(--mono);text-align:center;padding:12px}
-.num{font:500 13px var(--mono);color:var(--accent)}
-.cardline{display:inline-block;background:var(--card-bg);color:var(--card-fg);font:700 15px var(--display);letter-spacing:.06em;padding:4px 10px;border-radius:3px;border-bottom:3px solid var(--card-accent);margin-top:6px}
-.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.meta span{font:500 12px var(--mono);border:1px solid var(--line);padding:2px 8px;border-radius:4px;color:var(--muted)}
-details{margin-top:10px} summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:14px}
-textarea,input[type=text],input[type=email],input[type=url]{width:100%;font:15px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
-textarea{min-height:80px;resize:vertical}
-label.f{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:14px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.track{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
-.track:has(input:checked){border-color:var(--card-accent);box-shadow:0 0 0 2px var(--card-accent) inset}
-.track input{margin-top:4px}
-.flag{background:var(--flag-bg);border-left:4px solid var(--flag);padding:14px 16px;border-radius:0 8px 8px 0}
-.err{color:#C62828;font-weight:700}
-.ok{color:var(--ok);font-weight:700}
+.still .need{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#B9B9C0;font-size:14px;padding:16px;text-align:center}
+.shot .body{padding:18px 20px;display:flex;flex-direction:column;gap:8px}
+.num{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.desc{font-size:17px;line-height:1.4}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tags span{font-size:13px;color:var(--muted);background:var(--fill);padding:3px 9px;border-radius:999px}
+.tags .need{color:var(--warn)}
+.cardtext{font-weight:700;font-size:14px;letter-spacing:.04em;padding:4px 10px;border-radius:6px;align-self:flex-start}
+.linkbtn{appearance:none;border:0;background:none;color:var(--accent);font:500 15px var(--sans);padding:0;cursor:pointer;align-self:flex-start}
+textarea,input[type=text],input[type=email],input[type=url]{width:100%;font:16px var(--sans);color:var(--fg);background:var(--fill);border:0;border-radius:10px;padding:11px 14px}
+textarea{min-height:72px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0}
+.tracks{background:var(--card);border-radius:var(--r);overflow:hidden}
+.track{display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:.5px solid var(--sep)}
+.track:first-child{border-top:0}
+.play{width:40px;height:40px;border-radius:50%;border:0;background:var(--fill);color:var(--accent);font-size:15px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center}
+.play:disabled{opacity:.35;cursor:default}
+.track .t{flex:1;min-width:0}
+.track .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track .t span{font-size:14px;color:var(--muted)}
+.bar{height:3px;background:var(--fill);border-radius:2px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.choose[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;color:var(--muted)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0}
+.switch input{appearance:none;width:51px;height:31px;border-radius:999px;background:var(--fill);position:relative;cursor:pointer;transition:background .2s}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:left .2s}
+.switch input:checked{background:var(--ok)} .switch input:checked::after{left:22px}
+.ok{color:var(--ok);font-weight:600} .err{color:#D70015;font-weight:600}
 .hp{position:absolute;left:-9999px}
-.loading{padding:80px 0;text-align:center;color:var(--muted)}
+.preview{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-fg);text-align:center;font-size:14px;font-weight:600;padding:8px;margin:-44px -20px 0}
+.loading{padding:100px 0;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<div class="wrap" id="app"><p class="loading">Loading the brief…</p></div>
+<div class="wrap" id="app"><p class="loading">Loading…</p></div>
 <script>
 "use strict";
+const OBS_GUIDE="https://docs.google.com/presentation/d/1wk7vSpEUd-MF3xhx4tF3FSZ5_R69AKKhVcCMPwycfkw/edit?usp=sharing";
+const TIPS=[["1080p+","4K preferred · 16:9"],["60 fps","30 if the game can't hold 60"],["Music off","Keep sound effects on"],["10–15 s clips","Max 60 s · name each clip"],["H.264 · 30 Mbps",".mov or .mp4"]];
 const $=s=>document.querySelector(s);
 function h(tag,attrs,...kids){ const el=document.createElement(tag); if(attrs) for(const [k,v] of Object.entries(attrs)){ if(v==null||v===false) continue; if(k==="class") el.className=v; else if(k.startsWith("on")) el.addEventListener(k.slice(2),v); else el.setAttribute(k,v===true?"":v); } for(const k of kids.flat()){ if(k==null||k===false) continue; el.append(k.nodeType?k:document.createTextNode(String(k))); } return el; }
+const PREVIEW=location.hash==="#preview";
 const id=(location.pathname.match(/\/b\/([a-z0-9]{10,32})/)||[])[1]||new URLSearchParams(location.search).get("id");
 const SINGLE=new Set(["Press Start 2P","Silkscreen","Bebas Neue","Anton","Archivo Black","Bungee","Rubik Mono One","Audiowide","Russo One","Righteous","Creepster","Special Elite"]);
-let B=null;
-const MC=document.createElement("canvas").getContext("2d");
 const fw=st=>SINGLE.has(st.font)?400:((st.weight||700)>=600?700:400);
+const MC=document.createElement("canvas").getContext("2d");
 function layout(text,st,W,H){
   const k=W/1920, fs=Math.round(st.size*k), w=fw(st); MC.font=w+" "+fs+"px \""+st.font+"\", sans-serif";
   const tp=st.tracking*fs, words=text.split(/\s+/), lines=[]; let cur="";
@@ -83,90 +110,100 @@ function layout(text,st,W,H){
   const L=lines.slice(0,3), tw=Math.max(...L.map(l=>MC.measureText(l).width+tp*Math.max(0,l.length-1)),1), lh=Math.round(fs*1.08);
   const padX=Math.round(fs*.45), padY=Math.round(fs*.28), m=Math.round(96*k), bw=tw+padX*2, bh=lh*L.length+padY*2;
   const x=st.position.endsWith("center")?(W-bw)/2:m, y=st.position.startsWith("lower")?H-m-bh:st.position.startsWith("upper")?m:(H-bh)/2;
-  return {fs,w,lh,L,tw,padX,padY,b:{x,y,w:bw,h:bh},mid:st.position.endsWith("center"),k};
+  return {fs,w,lh,L,tw,padX,padY,b:{x,y,w:bw,h:bh},mid:st.position.endsWith("center")};
 }
 const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 function svg(text,st){
-  const W=1920,H=1080,L=layout(text,st,W,H),b=L.b,tx=L.mid?b.x+b.w/2:b.x+L.padX,op=st.plateOpacity;
+  const L=layout(text,st,1920,1080),b=L.b,tx=L.mid?b.x+b.w/2:b.x+L.padX,op=st.plateOpacity;
   let plate="";
   if(st.plate==="bar") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${st.plateColor}" fill-opacity="${op}"/><rect x="${b.x}" y="${b.y+b.h-6}" width="${b.w}" height="6" fill="${st.accent}"/>`;
   else if(st.plate==="box") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="8" fill="${st.plateColor}" fill-opacity="${op}"/>`;
   else if(st.plate==="outline") plate=`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${st.accent}" stroke-width="5"/>`;
   else if(st.plate==="underline") plate=`<rect x="${b.x+L.padX}" y="${b.y+b.h-L.padY*.6}" width="${L.tw}" height="7" fill="${st.accent}"/>`;
   const tsp=L.L.map((l,i)=>`<tspan x="${tx}" y="${b.y+L.padY+L.fs*.86+i*L.lh}">${esc(l)}</tspan>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs><filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity=".6"/></filter></defs>${plate}<text font-family="${esc(st.font)}, sans-serif" font-weight="${L.w}" font-size="${L.fs}" letter-spacing="${(st.tracking*L.fs).toFixed(1)}" fill="${st.text}" text-anchor="${L.mid?"middle":"start"}"${st.shadow?' filter="url(#sh)"':""}>${tsp}</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" aria-hidden="true"><defs><filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity=".6"/></filter></defs>${plate}<text font-family="${esc(st.font)}, sans-serif" font-weight="${L.w}" font-size="${L.fs}" letter-spacing="${(st.tracking*L.fs).toFixed(1)}" fill="${st.text}" text-anchor="${L.mid?"middle":"start"}"${st.shadow?' filter="url(#sh)"':""}>${tsp}</text></svg>`;
 }
-function stillBox(s,st){
-  const box=h("div",{class:"still"});
-  if(s.still) box.append(h("img",{src:s.still,alt:"Reference still for "+s.key,loading:"lazy"}));
-  else box.append(h("div",{class:"need"},"No reference still yet — please capture this from the description"));
-  if(s.superText){ const d=h("div"); d.innerHTML=svg(s.superText,st); box.append(d.firstChild); }
-  return box;
-}
+let B=null, ST=null; const shotNotes={}; let musicChoice="";
 async function load(){
-  if(!id){ $("#app").replaceChildren(h("p",{class:"err"},"This link is missing its brief id.")); return; }
-  try{ const r=await fetch("/api/brief?id="+encodeURIComponent(id)); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); B=j; }
-  catch(e){ $("#app").replaceChildren(h("p",{class:"err"},"Couldn't load this brief: "+e.message)); return; }
-  const st=B.style||{font:"Bebas Neue",size:84,tracking:.06,text:"#FFFFFF",plate:"bar",plateColor:"#08071A",plateOpacity:.85,accent:"#FF9999",position:"lower-left",shadow:true};
-  const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(st.font).replace(/%20/g,"+")+(SINGLE.has(st.font)?"":":wght@400;700")+"&display=swap"; document.head.append(l);
-  const root=document.documentElement.style; root.setProperty("--display",'"'+st.font+'", Impact, sans-serif'); root.setProperty("--card-bg",st.plateColor); root.setProperty("--card-fg",st.text); root.setProperty("--card-accent",st.accent);
+  try{
+    if(PREVIEW){ B=await new Promise(res=>{ const t=setTimeout(()=>res(null),8000); window.addEventListener("message",e=>{ if(e.origin===location.origin&&e.data&&e.data.type==="tsg-preview"){ clearTimeout(t); res(e.data.brief); } }); }); if(!B) throw new Error("Open the preview from the tool's Share step."); }
+    else{ if(!id) throw new Error("This link is missing its brief id."); const r=await fetch("/api/brief?id="+encodeURIComponent(id)); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); B=j; }
+  }catch(e){ $("#app").replaceChildren(h("p",{class:"err"},e.message)); return; }
+  ST=B.style||{font:"Bebas Neue",size:84,tracking:.06,text:"#FFFFFF",plate:"bar",plateColor:"#08071A",plateOpacity:.85,accent:"#FF9999",position:"lower-left",shadow:true};
+  const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(ST.font).replace(/%20/g,"+")+(SINGLE.has(ST.font)?"":":wght@400;700")+"&display=swap"; document.head.append(l);
   document.title=(B.game||"Trailer")+" · capture brief";
-  try{ await document.fonts.load(fw(st)+" 40px \""+st.font+"\""); }catch(e){}
-  render(st);
+  try{ await document.fonts.load(fw(ST)+" 40px \""+ST.font+"\""); }catch(e){}
+  render();
 }
-function render(st){
+function shotCard(s){
+  const box=h("div",{class:"still"});
+  if(s.still) box.append(h("img",{src:s.still,alt:"",loading:"lazy"})); else box.append(h("div",{class:"need"},"New capture needed"));
+  if(s.superText){ const d=h("div"); d.innerHTML=svg(s.superText,ST); box.append(d.firstChild); }
+  const ta=h("textarea",{placeholder:"Different moment, or where to find it",hidden:true}); ta.addEventListener("input",()=>{ shotNotes[s.key]=ta.value; });
+  const toggle=h("button",{class:"linkbtn",type:"button",onclick:()=>{ ta.hidden=!ta.hidden; if(!ta.hidden) ta.focus(); }},"Suggest a change");
+  return h("article",{class:"shot"},box,h("div",{class:"body"},
+    h("div",{class:"num"},"SCENE "+s.scene+" · SHOT "+s.shot),
+    h("p",{class:"desc"},s.desc),
+    s.superText?h("span",{class:"cardtext",style:`background:${ST.plateColor};color:${ST.text};font-family:"${ST.font}",sans-serif;box-shadow:inset 0 -3px 0 ${ST.accent}`},s.superText):null,
+    h("div",{class:"tags"},[s.shotType,s.sound?(s.sound+(s.soundDesc?" · "+s.soundDesc:"")):null].filter(Boolean).map(t=>h("span",null,t)),s.needsCapture?h("span",{class:"need"},"Needs capture"):null),
+    toggle,ta));
+}
+let playing=null;
+function trackRow(t,i){
+  const audio=t.audio?new Audio(t.audio):null, bar=h("i"), playBtn=h("button",{class:"play",type:"button","aria-label":"Play "+(t.name||"track"),disabled:!audio},"▶");
+  if(audio){ audio.preload="none";
+    audio.addEventListener("timeupdate",()=>{ bar.style.width=(audio.duration?100*audio.currentTime/audio.duration:0)+"%"; });
+    audio.addEventListener("ended",()=>{ playBtn.textContent="▶"; });
+    playBtn.addEventListener("click",()=>{ if(playing&&playing!==audio){ playing.pause(); document.querySelectorAll(".play").forEach(b=>b.textContent="▶"); }
+      if(audio.paused){ audio.play(); playBtn.textContent="❚❚"; playing=audio; } else { audio.pause(); playBtn.textContent="▶"; } }); }
+  const val=t.name||("Track "+(i+1));
+  const choose=h("button",{class:"btn sm choose",type:"button","aria-pressed":"false",onclick:()=>{ musicChoice=musicChoice===val?"":val; document.querySelectorAll(".choose").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===musicChoice?"true":"false")); document.querySelectorAll(".choose").forEach(b=>b.textContent=b.dataset.v===musicChoice?"Chosen":"Choose"); }},"Choose");
+  choose.dataset.v=val;
+  return h("div",{class:"track"},playBtn,h("div",{class:"t"},h("b",null,val),h("span",null,[t.mood,t.energy].filter(Boolean).join(" · ")||t.source||""),audio?h("div",{class:"bar"},bar):(t.url?h("a",{href:t.url,target:"_blank",rel:"noopener",class:"small"},"Listen ↗"):null)),choose);
+}
+function render(){
   const app=$("#app"); app.replaceChildren();
-  const facts=[...(B.cuts||[]).map(c=>c.label+(c.duration?" · "+c.duration:"")),B.platform,B.aspect,B.deadline?"Footage due "+B.deadline:null].filter(Boolean);
-  app.append(h("header",null,h("div",{class:"eyebrow"},"Trailer capture brief · from indie.io"),h("h1",null,B.game),B.message?h("p",{class:"lede"},B.message):null,h("div",{class:"facts"},facts.map(f=>h("span",null,f)))));
-  app.append(h("section",{class:"panel upload"},h("div",null,h("h3",null,"Upload your footage"),h("p",{class:"small"},B.settings||"Record each moment for 3–5 seconds with a little extra before and after."),B.deadline?h("p",{class:"small"},"Due "+B.deadline):null),
-    B.uploadLink?h("a",{class:"btn primary",href:B.uploadLink,target:"_blank",rel:"noopener"},"Open the upload folder ↗"):h("span",{class:"small"},"Upload link coming soon")));
-  app.append(h("section",null,h("h2",null,"What we need you to record"),B.summary?h("p",null,B.summary):null,
-    h("div",{class:"groups"},(B.captureList||[]).map(g=>h("div",null,h("h3",null,g.group),h("ul",null,(g.items||[]).map(i=>h("li",null,i))),(g.shots||[]).length?h("p",{class:"tag",style:"margin-top:8px"},"Shots: "+g.shots.join(", ")):null)))));
-  const shotNotes={};
-  for(const c of (B.cuts||[])){
-    const sec=h("section",null,h("h2",null,c.label+" — "+c.name+(c.duration?" · "+c.duration:"")),h("div",{class:"shots"},c.shots.map(s=>{
-      const ta=h("textarea",{placeholder:"Suggest a different moment, flag something that isn't in the game, or note where to find it"}); ta.addEventListener("input",()=>{ shotNotes[s.key]=ta.value; });
-      return h("article",{class:"shot"},stillBox(s,st),h("div",null,
-        h("div",{class:"num"},"Scene "+s.scene+" · Shot "+s.shot+" · "+s.key+(s.needsCapture?" · needs capture":"")),
-        h("p",{style:"margin-top:6px"},s.desc),
-        s.superText?h("div",null,h("span",{class:"cardline"},s.superText)):null,
-        h("div",{class:"meta"},[s.shotType,s.graphics,s.sound?s.sound+(s.soundDesc?": "+s.soundDesc:""):null].filter(Boolean).map(m=>h("span",null,m))),
-        h("details",null,h("summary",null,"Suggest a change"),ta)));
-    })));
-    app.append(sec);
-  }
+  if(PREVIEW) app.append(h("div",{class:"preview"},"Preview — this is what the developers will see"));
+  const cuts=B.cuts||[];
+  app.append(h("header",null,h("div",{class:"brand"},h("i"),"indie.io · capture brief"),h("h1",null,B.game),
+    B.message?h("p",{class:"sub"},B.message):h("p",{class:"sub"},"Here's the gameplay we need for the trailer"+(cuts.length>1?"s":"")+"."),
+    h("div",{class:"pills"},cuts.map(c=>h("span",null,c.label+(c.duration?" · "+c.duration:""))),B.deadline?h("span",null,"Due "+B.deadline):null)));
+  app.append(h("section",{class:"card upload"},h("div",{class:"ic"},"↑"),h("div",{style:"flex:1;min-width:200px"},h("b",{style:"font-size:19px"},"Upload your footage"),h("p",{class:"muted small"},B.deadline?"By "+B.deadline:"Drop clips into the shared folder")),
+    B.uploadLink?h("a",{class:"btn fill",href:B.uploadLink,target:"_blank",rel:"noopener"},"Open folder"):h("span",{class:"muted small"},"Link coming soon")));
+  app.append(h("section",null,h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"How to record"),h("span",{class:"spacer"}),h("a",{class:"btn sm",href:OBS_GUIDE,target:"_blank",rel:"noopener"},"Full OBS settings ↗")),
+    h("div",{class:"tips"},TIPS.map(([a,b])=>h("div",null,h("b",null,a),h("span",null,b))))));
+  if((B.captureList||[]).length) app.append(h("section",null,h("h2",null,"What to record"),B.summary?h("p",{class:"muted",style:"margin:-6px 0 14px"},B.summary):null,
+    h("div",{class:"card",style:"padding:6px 22px"},B.captureList.map((g,i)=>h("div",{style:"padding:14px 0;"+(i?"border-top:.5px solid var(--sep)":"")},h("b",null,g.group),h("ul",{style:"margin:6px 0 0;padding-left:20px;color:var(--muted)"},(g.items||[]).map(x=>h("li",null,x))))))));
+  // Shots, one tab per trailer
+  let active=0; const shotsSec=h("section"), seg=h("div",{class:"seg",role:"tablist"}), listBox=h("div",{class:"list"});
+  const showCut=i=>{ active=i; [...seg.children].forEach((b,j)=>b.setAttribute("aria-selected",j===i?"true":"false")); listBox.replaceChildren(...(cuts[i]?cuts[i].shots.map(shotCard):[])); };
+  cuts.forEach((c,i)=>seg.append(h("button",{role:"tab",type:"button",onclick:()=>showCut(i)},c.label)));
+  shotsSec.append(h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"Shots"),h("span",{class:"spacer"}),cuts.length>1?seg:null),
+    h("div",{class:"note"},"✎ On-screen text designs are placeholders — not final."),listBox);
+  app.append(shotsSec); showCut(0);
   // Music
-  const tracks=(B.music&&B.music.tracks)||[], dirs=(B.music&&B.music.directions)||[];
-  let choice="";
-  const licRows=h("div",{style:"display:flex;flex-direction:column;gap:10px"});
-  const addLic=()=>licRows.append(h("div",{class:"grid2 lic"},h("input",{type:"text",placeholder:"Track title / artist"}),h("input",{type:"url",placeholder:"Link (SoundCloud, Drive, Bandcamp…)"}),h("input",{type:"text",placeholder:"License — e.g. we own it / cleared for trailers"})));
-  addLic();
+  const tracks=(B.music&&B.music.tracks)||[];
+  const licBox=h("div",{class:"grid",hidden:true},h("input",{type:"text",id:"licT",placeholder:"Track name"}),h("input",{type:"url",id:"licL",placeholder:"Link"}),h("input",{type:"text",id:"licR",placeholder:"License (e.g. we own it)"}));
   app.append(h("section",null,h("h2",null,"Music"),
-    tracks.length?h("p",{class:"small",style:"margin-bottom:10px"},"Pick the track you like best, or send us licensed music you'd prefer we use."):null,
-    h("div",{style:"display:flex;flex-direction:column;gap:10px"},tracks.map((t,i)=>{ const r=h("input",{type:"radio",name:"music",value:t.name||("Track "+(i+1))}); r.addEventListener("change",()=>{ choice=r.value; });
-      return h("label",{class:"track"},r,h("div",null,h("b",null,t.name||"Track "+(i+1)),h("div",{class:"small"},[t.source,t.mood,t.energy].filter(Boolean).join(" · ")),t.url?h("a",{href:t.url,target:"_blank",rel:"noopener",class:"small"},"Listen ↗"):null)); }),
-      (()=>{ const r=h("input",{type:"radio",name:"music",value:"None of these — see our suggestion"}); r.addEventListener("change",()=>{ choice=r.value; }); return h("label",{class:"track"},r,h("div",null,h("b",null,"None of these"),h("div",{class:"small"},"We'll suggest our own below"))); })()),
-    dirs.length?h("p",{class:"small",style:"margin-top:12px"},"Direction we're going for: "+dirs.map(d=>[d.direction,d.mood].filter(Boolean).join(" — ")).join(" / ")):null,
-    h("div",{class:"panel",style:"margin-top:14px"},h("h3",null,"Suggest licensed music"),h("p",{class:"small",style:"margin-bottom:10px"},"Only tracks you have the rights to use in trailers."),licRows,h("button",{class:"btn",style:"margin-top:10px",onclick:addLic,type:"button"},"＋ Add another track"))));
-  // Response form
-  const name=h("input",{type:"text",autocomplete:"name"}), studio=h("input",{type:"text",autocomplete:"organization"}), email=h("input",{type:"email",autocomplete:"email"});
-  const notes=h("textarea",{placeholder:"Anything else — timings, what's possible to capture, questions"}), hp=h("input",{type:"text",class:"hp",tabindex:"-1",autocomplete:"off","aria-hidden":"true"});
-  const up=h("input",{type:"checkbox"}), msg=h("p",{"aria-live":"polite"});
-  const send=h("button",{class:"btn primary",type:"button",onclick:async()=>{
-    send.disabled=true; msg.className="small"; msg.textContent="Sending…";
-    const lic=[...licRows.querySelectorAll(".lic")].map(r=>{ const [t,l,c]=r.querySelectorAll("input"); return {title:t.value.trim(),link:l.value.trim(),license:c.value.trim()}; }).filter(m=>m.title||m.link);
-    try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,email:email.value,musicChoice:choice,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
+    tracks.length?h("div",{class:"tracks"},tracks.map(trackRow)):h("p",{class:"muted"},"No tracks yet."),
+    h("div",{class:"row",style:"margin-top:14px"},h("button",{class:"linkbtn",type:"button",onclick:()=>{ licBox.hidden=!licBox.hidden; }},"＋ Suggest licensed music")),licBox));
+  // Send
+  const name=h("input",{type:"text",placeholder:"Your name",autocomplete:"name"}), studio=h("input",{type:"text",placeholder:"Studio",autocomplete:"organization"});
+  const notes=h("textarea",{placeholder:"Notes (optional)"}), hp=h("input",{type:"text",class:"hp",tabindex:"-1",autocomplete:"off","aria-hidden":"true"});
+  const up=h("input",{type:"checkbox"}), msg=h("p",{"aria-live":"polite",class:"small"});
+  const send=h("button",{class:"btn fill",type:"button",disabled:PREVIEW,onclick:async()=>{
+    send.disabled=true; msg.className="small muted"; msg.textContent="Sending…";
+    const lic=[{title:$("#licT").value.trim(),link:$("#licL").value.trim(),license:$("#licR").value.trim()}].filter(m=>m.title||m.link);
+    try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,musicChoice,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.status);
-      msg.className="ok"; msg.textContent="Thanks — sent to indie.io. You can send again any time if something changes.";
-    }catch(e){ msg.className="err"; msg.textContent="Couldn't send: "+e.message; }
-    send.disabled=false; }},"Send to indie.io");
-  app.append(h("section",{class:"panel"},h("h2",null,"Send your notes"),
-    h("div",{class:"grid2"},h("label",{class:"f"},"Your name",name),h("label",{class:"f"},"Studio",studio),h("label",{class:"f"},"Email",email)),
-    h("label",{class:"f",style:"margin-top:14px"},"Notes",notes),hp,
-    h("label",{style:"display:flex;gap:8px;align-items:center;margin-top:12px"},up,"We've uploaded footage to the folder"),
-    h("p",{class:"small",style:"margin-top:10px"},"Your music pick, licensed-music links and any shot suggestions above are included."),
-    h("div",{style:"margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"},send,msg)));
-  if(B.contact) app.append(h("p",{class:"small"},"Questions? "+B.contact));
+      msg.className="ok"; msg.textContent="Sent. Thank you!";
+    }catch(e){ msg.className="err"; msg.textContent="Couldn't send — "+e.message; }
+    send.disabled=false; }},PREVIEW?"Sending is off in preview":"Send");
+  app.append(h("section",{class:"card"},h("h2",null,"Send to indie.io"),
+    h("div",{class:"grid"},name,studio),h("div",{style:"margin-top:12px"},notes),hp,
+    h("label",{class:"switch",style:"margin-top:12px"},h("span",null,"Footage uploaded"),up),
+    h("div",{class:"row",style:"margin-top:16px"},send,msg)));
+  if(B.contact) app.append(h("p",{class:"muted small",style:"text-align:center"},"Questions? "+B.contact));
 }
 load();
 </script>

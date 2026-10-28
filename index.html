@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="/vendor/exceljs.min.js"></script>
+<script src="/vendor/jszip.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root{
@@ -171,6 +171,58 @@ table.qc td:first-child{width:28px}
 .folders button[aria-pressed="true"]{border-color:var(--indigo);background:var(--lav);font-weight:600}
 .hidden{display:none!important}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+/* ===== Apple-style skin (indie.io colours) ===== */
+:root{
+  --ink:#1D1D1F; --ink-soft:#6E6E73; --paper:#FFFFFF; --wash:#F5F5F7; --lav:#EEEDF9;
+  --indigo:#373278; --indigo-deep:#373278; --pink:#FF9999; --pink-wash:#FFECEC; --pink-ink:#B3261E;
+  --line:rgba(60,60,67,.14); --fill:rgba(120,120,128,.12); --ok:#248A3D; --warn:#D70015;
+  --r-s:10px; --r-m:16px;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ink:#F5F5F7; --ink-soft:#98989D; --paper:#1C1C1E; --wash:#000000; --lav:#2A2850; --indigo:#9C96F5; --indigo-deep:#9C96F5; --pink-wash:#3A1D22; --pink-ink:#FF8A80; --line:rgba(84,84,88,.55); --fill:rgba(120,120,128,.24); --ok:#30D158; --warn:#FF453A } }
+:root[data-theme="dark"]{ --ink:#F5F5F7; --ink-soft:#98989D; --paper:#1C1C1E; --wash:#000000; --lav:#2A2850; --indigo:#9C96F5; --indigo-deep:#9C96F5; --pink-wash:#3A1D22; --pink-ink:#FF8A80; --line:rgba(84,84,88,.55); --fill:rgba(120,120,128,.24); --ok:#30D158; --warn:#FF453A }
+body{font-size:15px;letter-spacing:-.005em}
+.app{grid-template-columns:232px 1fr}
+.rail{background:color-mix(in srgb,var(--wash) 70%,var(--paper));color:var(--ink);border-right:.5px solid var(--line);padding:24px 14px;gap:22px;backdrop-filter:saturate(180%) blur(20px)}
+.brand{font-stretch:100%;font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1.2;padding:0 8px}
+.brand small{color:var(--ink-soft);font-weight:500;font-size:12px}
+.steps button{color:var(--ink);border-radius:8px;padding:8px 10px;font-weight:500}
+.steps button .n{color:var(--ink-soft);font-weight:600}
+.steps button:hover{background:var(--fill)}
+.steps button[aria-current="step"]{background:var(--indigo);color:#fff}
+:root[data-theme="dark"] .steps button[aria-current="step"]{color:#0B0A1C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .steps button[aria-current="step"]{color:#0B0A1C}}
+.steps button[aria-current="step"] .n{color:inherit;opacity:.8}
+.rail .foot{color:var(--ink-soft)}
+.rail .btn,#newScriptBtn{background:var(--fill)!important;border:0!important;color:var(--indigo)!important}
+main{padding:44px clamp(18px,4vw,56px) 80px;max-width:1080px}
+h1{font-stretch:100%;font-weight:700;font-size:clamp(28px,3.4vw,34px);letter-spacing:-.022em;margin:0 0 4px}
+h2{font-stretch:100%;font-weight:700;font-size:19px;letter-spacing:-.012em}
+.lede{font-size:16px;color:var(--ink-soft);margin:0 0 26px}
+label.f{font-size:13px;font-weight:600;color:var(--ink-soft)}
+input[type=text],input[type=number],select,textarea{background:var(--fill);border:0;border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--indigo);outline-offset:0}
+.btn{border:0;background:var(--fill);color:var(--indigo);border-radius:10px;padding:9px 16px;font-weight:600}
+.btn:hover{border:0;filter:brightness(.97)}
+.btn.primary{background:var(--indigo);color:#fff}
+.btn.ghost{background:none}
+.panel{border:0;border-radius:var(--r-m);padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.drop{border:1.5px dashed var(--line);border-radius:var(--r-m);background:var(--paper)}
+.src,.shot{border:0;border-radius:var(--r-m);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.shot .num{background:transparent;color:var(--ink-soft);font-stretch:100%;font-size:20px;border-right:.5px solid var(--line)}
+.shot .num button{color:var(--ink-soft)}
+.shot .num button:hover{background:var(--fill);color:var(--ink)}
+.toolbar{background:color-mix(in srgb,var(--wash) 85%,transparent);backdrop-filter:blur(20px);border-bottom:.5px solid var(--line)}
+.counter{background:var(--fill);border-radius:999px;font-weight:600}
+.chip{border-radius:999px}
+.strip{border-radius:12px}
+.reason{background:var(--fill)}
+dialog{border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog .hd{border-bottom:.5px solid var(--line)}
+details.more>summary{cursor:pointer;color:var(--indigo);font-weight:600;font-size:14px;list-style:none;margin:6px 0}
+details.more>summary::-webkit-details-marker{display:none}
+.preview-frame{width:100%;height:70vh;border:0;border-radius:var(--r-m);background:var(--wash);box-shadow:0 1px 2px rgba(0,0,0,.06)}
 </style>
 </head>
 <body>
@@ -399,7 +451,7 @@ function videoTypePicker(){
   const toggle=(t,on)=>{ const set=new Set(p.videoTypes); on?set.add(t):set.delete(t); p.videoTypes=VIDEO_TYPES.filter(x=>set.has(x)); save(); render(); };
   const preset=(arr)=>{ p.videoTypes=arr.slice(); save(); render(); };
   return h("div",{class:"wide panel"},
-    h("div",{class:"row"},h("b",null,"Video type"),h("span",{class:"note"},"Pick one, or several to get a separate tech script tab for each."),h("span",{class:"spacer"}),
+    h("div",{class:"row"},h("b",null,"Trailers"),h("span",{class:"spacer"}),
       h("button",{class:"btn small",onclick:()=>preset(["Release date announcement","Launch trailer"])},"RDA + Launch"),
       h("button",{class:"btn small",onclick:()=>preset(["Release date announcement"])},"RDA only"),
       h("button",{class:"btn small",onclick:()=>preset(["Launch trailer"])},"Launch only")),
@@ -413,20 +465,21 @@ function stepBrief(){
   const briefFile=h("input",{type:"file",accept:".txt,.md,.csv,text/plain,text/markdown",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; p.brief=(p.brief?p.brief+"\n\n":"")+await f.text(); save(); render(); }});
   return [
     h("div",{class:"row",style:"float:right"},h("button",{class:"btn small",onclick:openProjectFile},"Open project file")),
-    h("h1",null,"Start with the brief"),
-    h("p",{class:"lede"},"Fill in what you already know. Anything left blank is treated as unknown and flagged for confirmation instead of guessed."),
+    h("h1",null,"Brief"),
+    h("p",{class:"lede"},"The game, the trailers, and the brief."),
     h("div",{class:"grid2"},
       field("Game title","game",{ph:"e.g. Lost Vulcan"}),
       videoTypePicker(),
-      field("Platform","platform",{ph:"e.g. Steam, YouTube, TikTok"}),
-      field("Aspect ratio","aspect",{ph:"16:9"}),
-      field("Max supers per video","supersCap",{type:"number",hint:"The counter turns red past this number."}),
-      field("Brief / creative direction","brief",{type:"area",rows:12,wide:true,ph:"Paste the brief here, or load a text file."}),
-      h("div",{class:"row wide"},h("button",{class:"btn small",onclick:()=>briefFile.click()},"Load brief from a text file"),briefFile),
-      field("Campaign copy or required messaging","messaging",{type:"area",rows:3,wide:true}),
-      field("Mandatory items","mandatory",{type:"area",rows:3,wide:true,hint:"Logos, ratings, platforms, release dates, URLs, legal copy."})
+      field("Brief","brief",{type:"area",rows:10,wide:true,ph:"Paste the brief"}),
+      h("div",{class:"row wide"},h("button",{class:"btn small",onclick:()=>briefFile.click()},"Load from file"),briefFile)
     ),
-    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn primary",onclick:()=>go(1)},"Continue to sources"))
+    h("details",{class:"more",style:"margin-top:14px"},h("summary",null,"More options"),h("div",{class:"grid2",style:"margin-top:10px"},
+      field("Platform","platform",{ph:"Steam"}),
+      field("Aspect ratio","aspect",{ph:"16:9"}),
+      field("Max lower thirds","supersCap",{type:"number"}),
+      field("Required messaging","messaging",{type:"area",rows:3,wide:true}),
+      field("Logos, ratings, legal","mandatory",{type:"area",rows:3,wide:true}))),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn primary",onclick:()=>go(1)},"Continue"))
   ];
 }
 
@@ -523,19 +576,19 @@ async function connectFiles(files){
 }
 const playable=()=>S.sources.filter(x=>canPlay(x)&&!x.error);
 function linkPanel(){
-  const ta=h("textarea",{rows:3,placeholder:"Paste Google Drive file or folder links, YouTube or Vimeo links — one per line"});
-  const msg=h("p",{class:"note"},"Linked footage is never downloaded — once you're signed in with Google it streams from Drive for preview, capture and automatic frame scanning.");
-  return h("div",{class:"panel",style:"margin-top:14px"},h("b",null,"Link footage instead of uploading it"),ta,
+  const ta=h("textarea",{rows:3,placeholder:"Drive file or folder links, one per line"});
+  const msg=h("p",{class:"note"},"Drive clips stream — nothing downloads.");
+  return h("div",{class:"panel",style:"margin-top:14px"},h("b",null,"Or link from Drive"),ta,
     h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn primary small",onclick:()=>addLinks(ta.value,msg)},"Add links"),h("button",{class:"btn small",disabled:!MCP,onclick:openDriveImport},"Browse Google Drive"),
       h("button",{class:"btn small",onclick:()=>folderInput(r=>{ msg.textContent=r.total?("Connected "+r.total+" video(s): "+r.matched+" matched to linked files, "+r.added+" new. They play from your disk in the capture workspace."):"No videos found in that folder."; msg.className=r.total?"okc":"err"; })},"Connect footage folder (Drive for Desktop)")),msg,
-    h("p",{class:"note"},"Have Google Drive for desktop? Connect the synced footage folder: the clips stream from Drive as you scrub — no full download — and linked files are matched by name so you can preview and capture them."));
+    h("p",{class:"note"},""));
 }
 function stepSources(){
   const input=h("input",{type:"file",multiple:true,accept:"video/*,image/*,.mov,.mp4,.m4v,.webm",class:"hidden",onchange:e=>addFiles([...e.target.files])});
   const drop=h("div",{class:"drop",tabindex:0,role:"button",onclick:()=>input.click(),onkeydown:e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();input.click();}},
     ondragover:e=>{e.preventDefault();drop.classList.add("over");},ondragleave:()=>drop.classList.remove("over"),
     ondrop:e=>{e.preventDefault();drop.classList.remove("over");addFiles([...e.dataTransfer.files]);}},
-    h("strong",null,"Drop gameplay footage and screenshots here"),h("div",{class:"note"},"MP4/H.264 works everywhere. ProRes .mov files need an H.264 proxy. Files stay on your computer — only small stills are sent for analysis."));
+    h("strong",null,"Drop clips or screenshots"),h("div",{class:"note"},"MP4 or MOV (H.264). Files stay on your computer."));
   const cards=S.sources.map(s=>h("div",{class:"src"},
     h("div",{class:"thumb"}, s.thumb?h("img",{src:s.thumb,alt:""}): isLink(s)?(s.linkType||"Linked")+" — not downloaded":"No preview"),
     h("div",{class:"meta"},h("b",null,s.name),
@@ -545,11 +598,11 @@ function stepSources(){
       h("div",{class:"row"},h("button",{class:"btn ghost small",onclick:()=>{S.sources=S.sources.filter(x=>x.id!==s.id); S.frames=S.frames.filter(f=>f.sourceId!==s.id); FILES.delete(s.id); save(); render();}},"Remove")))
   ));
   return [
-    h("h1",null,"Add source material"),
-    h("p",{class:"lede"},"Upload clips, or link them from Google Drive (they stream — nothing downloads). Every shot keeps a link back to the source and timestamp."),
+    h("h1",null,"Footage"),
+    h("p",{class:"lede"},"Add clips or Drive links."),
     drop,input,
     linkPanel(),
-    S.sources.length?h("div",{class:"srcs"},cards):h("p",{class:"note",style:"margin-top:16px"},"No sources yet. You can still analyse with the brief alone — shots will be written as capture requests without frames."),
+    S.sources.length?h("div",{class:"srcs"},cards):h("p",{class:"note",style:"margin-top:16px"},"No footage yet — you can still plan from the brief."),
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(0)},"Back"),h("button",{class:"btn primary",onclick:()=>go(2)},"Continue to analysis"))
   ];
 }
@@ -745,8 +798,8 @@ Give 3 distinct music options. Use exactly these cut names: "+cuts().map(cutLabe
 function stepAnalyse(){
   const vids=S.sources.filter(s=>s.kind==="video"||(isLink(s)&&canPlay(s))), usable=vids.filter(s=>canPlay(s)&&!s.error);
   return [
-    h("h1",null,"Analyse footage against the brief"),
-    h("p",{class:"lede"},"Frames are pulled from each video in your browser and sent to Claude as labelled contact sheets with the brief. You review every suggestion before anything is exported."),
+    h("h1",null,"Analyse"),
+    h("p",{class:"lede"},"Plan the shots and pick stills from your footage."),
     h("div",{class:"panel"},
       h("p",null,S.sources.filter(s=>s.kind==="image").length+" screenshot(s) · "+usable.length+" video(s) ready"+(vids.length>usable.length?" · "+(vids.length-usable.length)+" need re-adding or a proxy":"")),
       !S.project.brief?h("p",{class:"err"},"There's no brief yet. Add one on the Brief step for useful results."):null,
@@ -1052,7 +1105,7 @@ function stepReview(){
   const ac=activeCut(), list=shotsOf(ac), n=supersUsed(ac), cap=Number(S.project.supersCap)||5;
   return [
     h("h1",null,"Review shots"),
-    h("p",{class:"lede"},"Accept, swap or replace each frame. Your picks and wording always win — re-running suggestions never overwrites them."),
+    h("p",{class:"lede"},"Pick a still for each shot."),
     cuts().length>1?h("div",{class:"row",role:"tablist",style:"margin-bottom:6px"},cuts().map(t=>h("button",{class:"btn"+(t===ac?" primary":""),role:"tab","aria-selected":t===ac?"true":"false",onclick:()=>{S.activeCut=t; save(); render();}},cutLabel(t)+" · "+shotsOf(t).length))):null,
     h("div",{class:"toolbar row"},h("span",{class:"counter",id:"supCount"},cutLabel(ac)+" lower thirds "+n+" / "+cap),h("span",{class:"counter"},list.length+" shots"+(S.project.durations[ac]?" · "+S.project.durations[ac]:"")),h("span",{class:"spacer"}),h("button",{class:"btn small primary",disabled:!SAMPLE,onclick:()=>fillFrames()},"Auto-select frames for all shots"),h("button",{class:"btn small",onclick:()=>openWorkspace(null)},"Open capture workspace"),h("button",{class:"btn small",onclick:addShot},"Add a shot"),h("button",{class:"btn small primary",onclick:()=>go(4)},"Continue to music")),
     S.missing.length?h("div",{class:"panel",style:"margin-top:12px"},h("b",null,"Footage the brief needs that the sources don't show"),h("ul",null,S.missing.map(m=>h("li",null,m)))):null,
@@ -1121,7 +1174,7 @@ function stepMusic(){
   const n=goodTracks();
   return [
     h("h1",null,"Music"),
-    h("p",{class:"lede"},"At least two real tracks from your Google Drive or Envato Elements, plus the direction behind them."),
+    h("p",{class:"lede"},"At least two tracks."),
     h("div",{class:"panel"},
       h("div",{class:"row"},h("b",null,"Tracks"),h("span",{class:"counter"+(n<2?" over":"")},n+" / 2 tracks picked"),h("span",{class:"spacer"}),
         h("button",{class:"btn primary",disabled:!SAMPLE||findingTracks,onclick:findTracks},findingTracks?"Searching…":S.tracks.length?"Search again":"Find tracks in Drive & Envato"),
@@ -1129,7 +1182,7 @@ function stepMusic(){
         h("button",{class:"btn small",onclick:()=>{S.tracks.push({id:uid(),source:"Google Drive",name:"",url:"",mood:"",energy:"",notes:""}); save(); render();}},"Add Drive track")),
       trackMsg?h("p",{class:"note"},trackMsg):null,
       !MCP?h("p",{class:"note"},"Sign in with Google to search your Drive for tracks. Envato searches work either way."):null,
-      h("p",{class:"note"},"Envato can't be searched from inside this page, so each Envato option opens a ready-made search. Pick a track there and paste its link here."),
+      h("p",{class:"note"},"Envato: open the search, pick a track, paste its link."),
       S.tracks.map((t,i)=>{ const prev=h("div",{style:"margin-top:8px"});
         return h("div",{class:"panel",style:"margin-top:12px"},
           h("div",{class:"row"},h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},t.source),t.label?h("b",null,t.label):null,h("span",{class:"spacer"}),
@@ -1264,8 +1317,8 @@ function stepExport(){
   const dmsg=h("p",{class:"note"}), gmsg=h("p",{class:"note"});
   const p=S.project;
   return [
-    h("h1",null,"Export the tech script"),
-    h("p",{class:"lede"},"Same layout as your template: an RDA and a Launch tab (Scene, Shot, Still, Shot Type, Graphics, Description, Sound, Sound Description, Notes) with the stills embedded, a Music tab, and the Brief & Rubric tab hidden. indie.io colours, live shot and lower-third counts."),
+    h("h1",null,"Export"),
+    h("p",{class:"lede"},"Your branded Google Sheet, or an .xlsx."),
     h("div",{class:"panel"},h("h2",{style:"margin-top:0"},"Final check"),h("table",{class:"qc"},items.map(([ok,t])=>h("tr",null,h("td",{class:ok?"okc":"err"},ok?"✓":"!"),h("td",null,t))))),
     h("div",{class:"panel",style:"margin-top:16px"},
       h("label",{class:"f"},"Google Sheet name",name),
@@ -1530,8 +1583,8 @@ function stepSupers(){
   refresh();
   const msg=h("p",{class:"note"}), dmsg=h("p",{class:"note"});
   return [
-    h("h1",null,"Supers — on-screen text"),
-    h("p",{class:"lede"},"Design the text cards in the game's look. They're overlaid on each shot's still, burned into the sheet and the developer brief, and downloadable as editable SVG, transparent PNG and an After Effects script."),
+    h("h1",null,"Supers"),
+    h("p",{class:"lede"},"On-screen text in the game's look."),
     h("div",{class:"panel"},
       h("div",{class:"row"},h("b",null,"Look"),st.why?h("span",{class:"note"},st.why):null,h("span",{class:"spacer"}),h("button",{class:"btn primary small",disabled:!SAMPLE,onclick:e=>suggestStyle(e.currentTarget,msg)},"Suggest a look from the brief"),h("button",{class:"btn small",onclick:()=>{ S.style=Object.assign({},DEFAULT_STYLE); save(); render(); }},"Reset")),
       msg,
@@ -1540,26 +1593,54 @@ function stepSupers(){
         fld("Text colour",color("text")), fld("Plate",selectOf("plate",PLATES)), fld("Plate colour",color("plateColor")),
         fld("Plate opacity",range("plateOpacity",0,1,0.05)), fld("Accent",color("accent")), fld("Position",selectOf("position",POSITIONS)),
         h("div",{class:"f"},"Options",check("upper","ALL CAPS"),check("shadow","Drop shadow"))),
-      h("p",{class:"note"},"Fonts are Google Fonts (most are also on Adobe Fonts), so the downloaded files open with live, editable text once the font is installed.")),
-    h("div",{class:"row",style:"margin-top:16px"},h("b",null,items.length+" card(s)"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download supers (SVG · PNG · After Effects)")),
+      h("p",{class:"note"},"Draft look — devs see these marked as not final.")),
+    h("div",{class:"row",style:"margin-top:16px"},h("b",null,items.length+" card(s)"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download (SVG · PNG · AE)")),
     dmsg, grid,
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("button",{class:"btn primary",onclick:()=>go(6)},"Continue to share"))
   ];
 }
 
 
-/* ===================== SHARE: developer brief page ===================== */
-function shr(){ if(!S.share) S.share={uploadLink:"",deadline:"",contact:"",message:"",summary:"",captureList:[],settings:"",briefId:"",briefUrl:"",publishedAt:"",responses:null}; return S.share; }
+
+/* ===================== SHARE: developer brief page (v2 — short, previewable) ===================== */
+function shr(){ if(!S.share) S.share={uploadLink:"",deadline:"",contact:"",message:"",summary:"",captureList:[],briefId:"",briefUrl:"",publishedAt:"",responses:null}; return S.share; }
 async function stillForBrief(s){
   const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
   const im=await loadImg(f.dataUrl); const W=640, H=360; const c=document.createElement("canvas"); c.width=W; c.height=H;
   const x=c.getContext("2d"); const sc=Math.max(W/im.width,H/im.height); x.drawImage(im,(W-im.width*sc)/2,(H-im.height*sc)/2,im.width*sc,im.height*sc);
   return c.toDataURL("image/jpeg",0.72);
 }
-async function buildBriefPayload(){
+/* 45-second MP3 preview of a Drive track, so developers can listen without Drive access. */
+let lameLoading=null;
+function loadLame(){ if(window.lamejs) return Promise.resolve(); if(!lameLoading) lameLoading=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="/vendor/lame.min.js"; s.onload=res; s.onerror=()=>rej(new Error("audio encoder didn't load")); document.head.append(s); }); return lameLoading; }
+async function makeAudioPreview(t){
+  if(t.preview) return t.preview;
+  if(!t.driveId||!MCP) return null;
+  const p=(await MCP.callTool(DRIVE,"download_file_content",{fileId:t.driveId})).payload;
+  if(!p||!p.content) return null;
+  const bin=Uint8Array.from(atob(p.content),c=>c.charCodeAt(0));
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const buf=await ctx.decodeAudioData(bin.buffer.slice(0)); ctx.close&&ctx.close();
+  const SR=22050, secs=Math.min(45,buf.duration), start=0;
+  const off=new OfflineAudioContext(1,Math.ceil(SR*secs),SR); const src=off.createBufferSource(); src.buffer=buf;
+  const g=off.createGain(); g.gain.setValueAtTime(1,0); g.gain.setValueAtTime(1,Math.max(0,secs-2)); g.gain.linearRampToValueAtTime(0,secs);
+  src.connect(g).connect(off.destination); src.start(0,start,secs);
+  const out=await off.startRendering(); const f32=out.getChannelData(0);
+  await loadLame();
+  const enc=new lamejs.Mp3Encoder(1,SR,64), i16=new Int16Array(f32.length);
+  for(let i=0;i<f32.length;i++){ const v=Math.max(-1,Math.min(1,f32[i])); i16[i]=v<0?v*0x8000:v*0x7FFF; }
+  const chunks=[]; for(let i=0;i<i16.length;i+=1152){ const m=enc.encodeBuffer(i16.subarray(i,i+1152)); if(m.length) chunks.push(m); }
+  const end=enc.flush(); if(end.length) chunks.push(end);
+  const blob=new Blob(chunks,{type:"audio/mpeg"});
+  t.preview=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+  save(); return t.preview;
+}
+async function buildBriefPayload(withAudio){
   const p=S.project, sh=shr(), st=sty();
-  const out={game:p.game||"Untitled",platform:p.platform,aspect:p.aspect,message:sh.message,uploadLink:sh.uploadLink,deadline:sh.deadline,contact:sh.contact,
-    summary:sh.summary,captureList:sh.captureList||[],settings:sh.settings,style:st,cuts:[],music:{tracks:(S.tracks||[]).filter(t=>(t.url||t.name)&&!/⚠/.test(t.notes||"")&&t.source!=="Developer suggestion").map(t=>({source:t.source,name:t.name,url:t.url,mood:t.mood,energy:t.energy,notes:t.notes})),directions:(S.music||[]).map(m=>({option:m.option,direction:m.direction,mood:m.mood,energy:m.energy}))}};
+  const tracks=(S.tracks||[]).filter(t=>(t.url||t.name)&&!/⚠/.test(t.notes||"")&&t.source!=="Developer suggestion");
+  const out={game:p.game||"Untitled",message:sh.message,uploadLink:sh.uploadLink,deadline:sh.deadline,contact:sh.contact,
+    summary:sh.summary,captureList:sh.captureList||[],style:st,cuts:[],music:{tracks:[]}};
+  for(const t of tracks){ let audio=null; if(withAudio){ try{ audio=await makeAudioPreview(t); }catch(e){ audio=null; } } out.music.tracks.push({source:t.source,name:t.name,url:t.url,mood:t.mood,energy:t.energy,audio}); }
   for(const c of cuts()){
     const list=shotsOf(c), shots=[]; let prev=null, n=0;
     for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
@@ -1569,24 +1650,32 @@ async function buildBriefPayload(){
   return out;
 }
 async function writeDevSummary(btn,msg){
-  btn.disabled=true; msg.textContent="Writing the capture summary…"; msg.className="note";
+  btn.disabled=true; msg.textContent="Writing…"; msg.className="note";
   try{
     const shots=cuts().map(c=>cutLabel(c)+":\n"+shotsOf(c).map((s,i)=>cutLabel(c)+"-"+pad(i+1)+": "+s.desc).join("\n")).join("\n");
-    const out=await SAMPLE.json(`Answer with valid JSON only.\nYou write the capture request a game developer receives from a trailer editor. Be concise, friendly and practical. Group shots by where/what to capture (level, mode, menu), merge duplicates across cuts, and never invent features.\n\nPROJECT\n${projectText()}\n\nSHOTS\n${shots}\n\nReturn ONLY JSON: {"summary":"2-3 sentence overview of what we need and why","captureList":[{"group":"e.g. Zone 3 — volcanic","items":["what to record, one line each"],"shots":["RDA-01"]}],"settings":"capture settings in one line (resolution, frame rate, HUD on/off, no motion blur, etc.)"}`,{modelTier:"default",cache:false});
-    const sh=shr(); sh.summary=out.summary||sh.summary; if(Array.isArray(out.captureList)) sh.captureList=out.captureList.filter(g=>g&&g.group).slice(0,30); sh.settings=out.settings||sh.settings; save(); render();
-  }catch(e){ msg.textContent="Couldn't write the summary: "+((e&&e.message)||"unknown error"); msg.className="err"; btn.disabled=false; }
+    const out=await SAMPLE.json(`Answer with valid JSON only.\nWrite a SHORT capture request for game developers. Plain words, no jargon. Group by where to capture (level, mode, menu). Merge duplicates across trailers. Max 6 groups, max 4 items per group, each item under 10 words. Never invent features.\n\nPROJECT\n${projectText()}\n\nSHOTS\n${shots}\n\nReturn ONLY JSON: {"summary":"one sentence, under 20 words","captureList":[{"group":"short place name","items":["short action"],"shots":["RDA-01"]}]}`,{modelTier:"default",cache:false});
+    const sh=shr(); sh.summary=out.summary||sh.summary; if(Array.isArray(out.captureList)) sh.captureList=out.captureList.filter(g=>g&&g.group).slice(0,8); save(); render();
+  }catch(e){ msg.textContent="Couldn't write it: "+((e&&e.message)||"unknown error"); msg.className="err"; btn.disabled=false; }
 }
-function derivedCaptureList(){ return cuts().map(c=>({group:cutLabel(c)+" shots",items:shotsOf(c).map((s,i)=>pad(i+1)+" · "+s.desc),shots:[]})); }
-async function publishBrief(btn,msg){
-  if(!window.TSG_SERVER){ msg.textContent="Brief pages are published from the Vercel version: tech-script-generator.vercel.app"; msg.className="err"; return; }
-  const sh=shr(); if(!sh.uploadLink){ if(!confirm("There's no footage upload link yet. Publish anyway?")) return; }
-  btn.disabled=true; msg.textContent="Preparing stills and supers…"; msg.className="note";
+async function showPreview(btn,box,msg){
+  btn.disabled=true; msg.textContent="Building preview…"; msg.className="note";
   try{
-    const brief=await buildBriefPayload();
-    if(!brief.captureList.length) brief.captureList=derivedCaptureList();
-    const body=JSON.stringify({id:sh.briefId||undefined,brief});
-    if(body.length>4.2e6) throw new Error("The brief is too large to publish ("+(body.length/1e6).toFixed(1)+" MB). Remove some shots or stills.");
-    msg.textContent="Publishing…";
+    const brief=await buildBriefPayload(true);
+    const fr=h("iframe",{class:"preview-frame",title:"Developer page preview",src:"/brief.html#preview"});
+    fr.addEventListener("load",()=>{ fr.contentWindow.postMessage({type:"tsg-preview",brief},location.origin); });
+    box.replaceChildren(fr); msg.textContent=""; 
+  }catch(e){ msg.textContent="Couldn't build the preview: "+((e&&e.message)||e); msg.className="err"; }
+  btn.disabled=false;
+}
+async function publishBrief(btn,msg){
+  if(!window.TSG_SERVER){ msg.textContent="Publish from tech-script-generator.vercel.app (save a project file and open it there)."; msg.className="err"; return; }
+  const sh=shr(); if(!sh.uploadLink&&!confirm("No upload link yet. Publish anyway?")) return;
+  btn.disabled=true; msg.textContent="Publishing…"; msg.className="note";
+  try{
+    const brief=await buildBriefPayload(true);
+    let body=JSON.stringify({id:sh.briefId||undefined,brief});
+    if(body.length>4.2e6){ brief.music.tracks.forEach(t=>t.audio=null); body=JSON.stringify({id:sh.briefId||undefined,brief}); msg.textContent="Too big with music previews — publishing without them…"; }
+    if(body.length>4.2e6) throw new Error("Too big to publish ("+(body.length/1e6).toFixed(1)+" MB). Remove some shots.");
     const t=await token();
     const r=await fetch("/api/brief",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body});
     const j=await r.json().catch(()=>({}));
@@ -1595,48 +1684,48 @@ async function publishBrief(btn,msg){
   }catch(e){ msg.textContent=(e&&e.message)||"Publishing failed."; msg.className="err"; btn.disabled=false; }
 }
 async function loadResponses(btn,box){
-  const sh=shr(); btn.disabled=true; box.replaceChildren(h("p",{class:"note"},"Loading responses…"));
+  const sh=shr(); btn.disabled=true; box.replaceChildren(h("p",{class:"note"},"Loading…"));
   try{ const t=await token(); const r=await fetch("/api/brief-responses?id="+sh.briefId,{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
     sh.responses=j.responses||[]; save();
     box.replaceChildren(...(sh.responses.length?sh.responses.map(x=>h("div",{class:"panel",style:"margin-top:10px"},
       h("div",{class:"row"},h("b",null,(x.name||"Someone")+(x.studio?" · "+x.studio:"")),h("span",{class:"note"},new Date(x.receivedAt).toLocaleString()),x.footageUploaded?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Footage uploaded"):null),
-      x.musicChoice?h("p",null,h("b",null,"Music pick: "),x.musicChoice):null,
-      (x.licensedMusic||[]).length?h("div",null,h("b",null,"Licensed music they suggest:"),h("ul",null,x.licensedMusic.map(m=>h("li",null,(m.title||"Track")+" ",m.link?h("a",{href:m.link,target:"_blank",rel:"noopener"},"link"):null,m.license?" — "+m.license:"")))):null,
+      x.musicChoice?h("p",null,"🎵 "+x.musicChoice):null,
+      (x.licensedMusic||[]).map(m=>h("p",null,"＋ "+(m.title||"Track")+" ",m.link?h("a",{href:m.link,target:"_blank",rel:"noopener"},"link"):null,m.license?" · "+m.license:"")),
       x.notes?h("p",{style:"white-space:pre-wrap"},x.notes):null,
-      Object.keys(x.shotNotes||{}).length?h("div",null,h("b",null,"Shot notes:"),h("ul",null,Object.entries(x.shotNotes).map(([k,v])=>h("li",null,h("b",null,k+": "),v)))):null,
-      (x.licensedMusic||[]).length?h("button",{class:"btn small",onclick:()=>{ x.licensedMusic.forEach(m=>S.tracks.push({id:uid(),source:"Developer suggestion",name:m.title,url:m.link,mood:"",energy:"",notes:(m.license?"License: "+m.license+"\n":"")+"Suggested by "+(x.name||"the developer"),locked:true})); save(); alert("Added to Music."); }},"Add their tracks to Music"):null
-    )):[h("p",{class:"note"},"No responses yet.")]));
-  }catch(e){ box.replaceChildren(h("p",{class:"err"},"Couldn't load responses: "+((e&&e.message)||e))); }
+      Object.entries(x.shotNotes||{}).map(([k,v])=>h("p",null,h("b",null,k+" "),v)),
+      (x.licensedMusic||[]).length?h("button",{class:"btn small",onclick:()=>{ x.licensedMusic.forEach(m=>S.tracks.push({id:uid(),source:"Developer suggestion",name:m.title,url:m.link,mood:"",energy:"",notes:(m.license?"License: "+m.license+"\n":"")+"From "+(x.name||"the developer"),locked:true})); save(); alert("Added to Music."); }},"Add their track to Music"):null
+    )):[h("p",{class:"note"},"No replies yet.")]));
+  }catch(e){ box.replaceChildren(h("p",{class:"err"},"Couldn't load replies: "+((e&&e.message)||e))); }
   btn.disabled=false;
 }
 function stepShare(){
   const sh=shr();
-  const fld=(label,k,opts={})=>{ const el=opts.area?h("textarea",{rows:opts.rows||3,placeholder:opts.ph||""}):h("input",{type:"text",placeholder:opts.ph||""}); el.value=sh[k]||""; el.addEventListener("input",e=>{ sh[k]=e.target.value; save(); }); return h("label",{class:"f"+(opts.wide?" wide":"")},label,opts.hint?h("span",{class:"h"},opts.hint):null,el); };
-  const msg=h("p",{class:"note"}), smsg=h("p",{class:"note"}), respBox=h("div");
-  const cl=sh.captureList&&sh.captureList.length?sh.captureList:derivedCaptureList();
+  const fld=(label,k,opts={})=>{ const el=opts.area?h("textarea",{rows:opts.rows||3,placeholder:opts.ph||""}):h("input",{type:"text",placeholder:opts.ph||""}); el.value=sh[k]||""; el.addEventListener("input",e=>{ sh[k]=e.target.value; save(); }); return h("label",{class:"f"+(opts.wide?" wide":"")},label,el); };
+  const msg=h("p",{class:"note"}), smsg=h("p",{class:"note"}), pmsg=h("p",{class:"note"}), respBox=h("div"), prevBox=h("div",{style:"margin-top:12px"});
+  const cl=sh.captureList||[];
   return [
-    h("h1",null,"Share with the developers"),
-    h("p",{class:"lede"},"Publish a brief page for the dev team: a summary of what to record, every shot with its still and on-screen text, where to upload footage, and a place to pick suggested music or send their own licensed tracks. Their replies come back here."),
+    h("h1",null,"Share"),
+    h("p",{class:"lede"},"A page for the developers: what to record, where to upload, and the music."),
     h("div",{class:"panel"},h("div",{class:"grid2"},
-      fld("Footage upload link","uploadLink",{ph:"Drive folder link the devs should upload to",hint:"Share the folder with them as Editor first."}),
-      fld("Deadline","deadline",{ph:"e.g. Friday 14 Nov"}),
-      fld("Contact","contact",{ph:"Name and Slack / email"}),
-      fld("Message to the team","message",{area:true,wide:true,ph:"A short hello and what this brief is for"})),
-      h("p",{class:"note",style:"margin-top:8px"},"Music on the page: tracks flagged as possibly another game's mix are left off. Drive tracks only play for the developers if the files are shared with them.")),
-    h("div",{class:"panel",style:"margin-top:16px"},
-      h("div",{class:"row"},h("b",null,"What to record"),h("span",{class:"spacer"}),h("button",{class:"btn small primary",disabled:!SAMPLE,onclick:e=>writeDevSummary(e.currentTarget,smsg)},sh.summary?"Rewrite summary":"Write the summary")),smsg,
-      fld("Summary","summary",{area:true,rows:3,wide:true}),
-      h("div",{style:"margin-top:8px"},cl.map(g=>h("div",{style:"margin-top:8px"},h("b",null,g.group),h("ul",{style:"margin:4px 0 0"},(g.items||[]).map(it=>h("li",null,it)))))),
-      fld("Capture settings","settings",{ph:"e.g. 1080p+ at 60 fps, HUD on, no motion blur, record each moment 3–5 s with handles",wide:true})),
-    h("div",{class:"panel",style:"margin-top:16px"},
-      h("div",{class:"row"},h("b",null,"Brief page"),h("span",{class:"spacer"}),
-        h("button",{class:"btn primary",onclick:e=>publishBrief(e.currentTarget,msg)},sh.briefId?"Update brief page":"Publish brief page"),
-        sh.briefUrl?h("a",{class:"btn",href:sh.briefUrl,target:"_blank",rel:"noopener"},"Open"):null,
-        sh.briefUrl?h("button",{class:"btn",onclick:()=>navigator.clipboard.writeText(sh.briefUrl).then(()=>{ msg.textContent="Link copied."; msg.className="okc"; })},"Copy link"):null),
-      msg,
-      sh.briefUrl?h("p",null,"Link for the developers: ",h("a",{href:sh.briefUrl,target:"_blank",rel:"noopener"},sh.briefUrl),h("span",{class:"note"}," · published "+new Date(sh.publishedAt).toLocaleString()+". Anyone with the link can view it; updating keeps the same link.")):h("p",{class:"note"},"Not published yet."),
-      sh.briefId?h("div",{style:"margin-top:12px"},h("div",{class:"row"},h("b",null,"Developer responses"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check for responses")),respBox):null),
-    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(5)},"Back"),h("button",{class:"btn primary",onclick:()=>go(7)},"Continue to export"))
+      fld("Upload folder","uploadLink",{ph:"Drive folder link"}),
+      fld("Due","deadline",{ph:"Fri 14 Nov"}),
+      fld("Contact","contact",{ph:"Name · Slack or email"})),
+      h("details",{class:"more",style:"margin-top:12px"},h("summary",null,"Add a message"),fld("","message",{area:true,ph:"Optional hello"}))),
+    h("div",{class:"panel",style:"margin-top:14px"},
+      h("div",{class:"row"},h("b",null,"What to record"),h("span",{class:"spacer"}),h("button",{class:"btn small",disabled:!SAMPLE,onclick:e=>writeDevSummary(e.currentTarget,smsg)},cl.length?"Rewrite":"Summarise")),smsg,
+      sh.summary?h("p",{class:"note",style:"margin-top:6px"},sh.summary):null,
+      cl.length?h("div",{style:"margin-top:6px"},cl.map(g=>h("div",{style:"margin-top:8px"},h("b",null,g.group),h("span",{class:"note"},"  "+(g.items||[]).join(" · "))))):h("p",{class:"note"},"Optional — the shots list is always included."),
+      h("p",{class:"note",style:"margin-top:10px"},"Recording tips (from the OBS guide) are added automatically.")),
+    h("div",{class:"panel",style:"margin-top:14px"},
+      h("div",{class:"row"},h("b",null,"Developer page"),h("span",{class:"spacer"}),
+        window.TSG_SERVER?h("button",{class:"btn",onclick:e=>showPreview(e.currentTarget,prevBox,pmsg)},"Preview"):null,
+        h("button",{class:"btn primary",onclick:e=>publishBrief(e.currentTarget,msg)},sh.briefId?"Update":"Publish"),
+        sh.briefUrl?h("button",{class:"btn",onclick:()=>navigator.clipboard.writeText(sh.briefUrl).then(()=>{ msg.textContent="Copied."; msg.className="okc"; })},"Copy link"):null),
+      msg,pmsg,
+      sh.briefUrl?h("p",{style:"margin-top:6px"},h("a",{href:sh.briefUrl,target:"_blank",rel:"noopener"},sh.briefUrl)):null,
+      prevBox,
+      sh.briefId?h("div",{style:"margin-top:14px"},h("div",{class:"row"},h("b",null,"Replies"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check")),respBox):null),
+    h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(5)},"Back"),h("button",{class:"btn primary",onclick:()=>go(7)},"Continue"))
   ];
 }
 
