@@ -1175,9 +1175,10 @@ function stepMusic(){
   return [
     h("h1",null,"Music"),
     h("p",{class:"lede"},"At least two tracks."),
+    musicLibraryPanel(),
     h("div",{class:"panel"},
       h("div",{class:"row"},h("b",null,"Tracks"),h("span",{class:"counter"+(n<2?" over":"")},n+" / 2 tracks picked"),h("span",{class:"spacer"}),
-        h("button",{class:"btn primary",disabled:!SAMPLE||findingTracks,onclick:findTracks},findingTracks?"Searching…":S.tracks.length?"Search again":"Find tracks in Drive & Envato"),
+        h("button",{class:"btn",disabled:!SAMPLE||findingTracks,onclick:findTracks},findingTracks?"Searching…":"Search all of Drive + Envato"),
         h("button",{class:"btn small",onclick:()=>{S.tracks.push({id:uid(),source:"Envato Elements",name:"",url:"",search:"",searchUrl:"",mood:"",energy:"",notes:""}); save(); render();}},"Add Envato track"),
         h("button",{class:"btn small",onclick:()=>{S.tracks.push({id:uid(),source:"Google Drive",name:"",url:"",mood:"",energy:"",notes:""}); save(); render();}},"Add Drive track")),
       trackMsg?h("p",{class:"note"},trackMsg):null,
@@ -1187,7 +1188,7 @@ function stepMusic(){
         return h("div",{class:"panel",style:"margin-top:12px"},
           h("div",{class:"row"},h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},t.source),t.label?h("b",null,t.label):null,h("span",{class:"spacer"}),
             t.searchUrl?h("a",{class:"btn small",href:t.searchUrl,target:"_blank",rel:"noopener"},"Search Envato: "+t.search):null,
-            t.driveId?h("button",{class:"btn small",disabled:!MCP,onclick:()=>previewTrack(t,prev)},"Preview"):null,
+            t.driveId?h("button",{class:"btn small",disabled:!MCP,onclick:e=>playTrack(t,e.currentTarget)},"▶"):null,
             t.url?h("a",{class:"btn small",href:t.url,target:"_blank",rel:"noopener"},"Open"):null,
             h("button",{class:"btn ghost small",onclick:()=>{S.tracks.splice(i,1); save(); render();}},"Remove")),
           prev,
@@ -1344,7 +1345,7 @@ function stepExport(){
 /* ---------- project files: move a draft between the Claude version and the Vercel version ---------- */
 async function saveProjectFile(){
   const data={kind:"tech-script-generator-project",version:1,savedAt:new Date().toISOString(),
-    project:S.project,style:S.style||null,share:S.share?Object.assign({},S.share,{responses:null}):null,shots:S.shots,music:S.music,tracks:S.tracks||[],missing:S.missing,analysis:S.analysis,
+    project:S.project,style:S.style||null,share:S.share?Object.assign({},S.share,{responses:null}):null,musicLib:S.musicLib?{folderId:S.musicLib.folderId,folderName:S.musicLib.folderName,files:[],analysis:{},msg:""}:null,shots:S.shots,music:S.music,tracks:S.tracks||[],missing:S.missing,analysis:S.analysis,
     sources:S.sources.map(x=>Object.assign({},x)),frames:S.frames};
   const name=(S.exportInfo.sheetName||defaultName())+".tsg.json";
   const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
@@ -1358,7 +1359,7 @@ function openProjectFile(){
       const d=JSON.parse(await f.text());
       if(d.kind!=="tech-script-generator-project") throw new Error("That isn't a Tech Script Generator project file.");
       if(S.shots.length&&!confirm("Replace the current draft with "+f.name+"?")) return;
-      Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[],style:d.style||null,share:d.share||null});
+      Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[],style:d.style||null,share:d.share||null,musicLib:d.musicLib||null});
       FILES.clear(); save(); go(S.shots.length?3:0);
     }catch(err){ alert("Couldn't open that file: "+err.message); }
   }});
@@ -1370,7 +1371,7 @@ function newScript(){
   if(!confirm("Start a new tech script?\n\nThis clears the current brief, shots, frames and music. Save a project file first if you want to keep it.")) return;
   const keep=S.exportInfo||{};
   S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5};
-  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null; S.style=null; S.share=null;
+  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null; S.style=null; S.share=null; S.musicLib=S.musicLib?{folderId:S.musicLib.folderId,folderName:S.musicLib.folderName,files:[],analysis:{},msg:""}:null;
   S.exportInfo={sheetName:"",folderId:keep.folderId||"",folderName:keep.folderName||"My Drive",lastUrl:""};
   FILES.clear(); logLines=[]; try{ trackMsg=""; }catch(e){}
   if($("#dlg").open) $("#dlg").close();
@@ -1621,7 +1622,7 @@ async function makeAudioPreview(t){
   const bin=Uint8Array.from(atob(p.content),c=>c.charCodeAt(0));
   const ctx=new (window.AudioContext||window.webkitAudioContext)();
   const buf=await ctx.decodeAudioData(bin.buffer.slice(0)); ctx.close&&ctx.close();
-  const SR=22050, secs=Math.min(45,buf.duration), start=0;
+  const start=Math.max(0,Math.min((parseTc(t.startAt||"0:00")||0),Math.max(0,buf.duration-10))), SR=22050, secs=Math.min(45,buf.duration-start);
   const off=new OfflineAudioContext(1,Math.ceil(SR*secs),SR); const src=off.createBufferSource(); src.buffer=buf;
   const g=off.createGain(); g.gain.setValueAtTime(1,0); g.gain.setValueAtTime(1,Math.max(0,secs-2)); g.gain.linearRampToValueAtTime(0,secs);
   src.connect(g).connect(off.destination); src.start(0,start,secs);
@@ -1727,6 +1728,116 @@ function stepShare(){
       sh.briefId?h("div",{style:"margin-top:14px"},h("div",{class:"row"},h("b",null,"Replies"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check")),respBox):null),
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(5)},"Back"),h("button",{class:"btn primary",onclick:()=>go(7)},"Continue"))
   ];
+}
+
+
+/* ===================== MUSIC LIBRARY: pick the best tracks from a Drive folder ===================== */
+const AUDIO_RE=/^audio\/|\.(mp3|wav|aif|aiff|m4a|aac|flac|ogg)$/i;
+function lib(){ if(!S.musicLib) S.musicLib={folderId:"",folderName:"",files:[],analysis:{},msg:""}; return S.musicLib; }
+async function listAudioIn(folderId,depth=0,acc=[]){
+  if(depth>2||acc.length>=300) return acc;
+  const p=await drive("search_files",{query:"parentId = '"+folderId+"'"}); const files=(p&&p.files)||[];
+  for(const f of files){
+    if(f.mimeType==="application/vnd.google-apps.folder") await listAudioIn(f.id,depth+1,acc);
+    else if(AUDIO_RE.test(f.mimeType||"")||AUDIO_RE.test(f.title||"")) acc.push({id:f.id,name:f.title,mime:f.mimeType,size:f.fileSize?Number(f.fileSize):null,url:f.viewUrl,folder:depth?"sub":""});
+  }
+  return acc;
+}
+const blobCache=new Map();
+async function audioBytes(id){
+  if(blobCache.has(id)) return blobCache.get(id);
+  let buf;
+  if(window.TSG_SERVER){ const r=await gfetch("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media&supportsAllDrives=true"); buf=await r.arrayBuffer(); }
+  else{ const p=(await MCP.callTool(DRIVE,"download_file_content",{fileId:id})).payload; if(!p||!p.content) throw new Error("no audio returned"); buf=Uint8Array.from(atob(p.content),c=>c.charCodeAt(0)).buffer; }
+  blobCache.set(id,buf); return buf;
+}
+/* Listen-free audio fingerprint: length, tempo, loudness, how the energy moves, where it peaks. */
+async function analyzeAudio(buf){
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const ab=await ctx.decodeAudioData(buf.slice(0)); ctx.close&&ctx.close();
+  const SR=11025, off=new OfflineAudioContext(1,Math.ceil(ab.duration*SR),SR), src=off.createBufferSource(); src.buffer=ab; src.connect(off.destination); src.start();
+  const x=(await off.startRendering()).getChannelData(0);
+  const hop=Math.round(SR*0.02), env=[];
+  for(let i=0;i+hop<=x.length;i+=hop){ let s=0; for(let j=i;j<i+hop;j++) s+=x[j]*x[j]; env.push(Math.sqrt(s/hop)); }
+  const db=v=>20*Math.log10(v+1e-9), peak=Math.max(...env,1e-9);
+  const onset=env.map((v,i)=>i?Math.max(0,v-env[i-1]):0);
+  let best=0,bpm=0; for(let b=70;b<=180;b++){ const lag=Math.round(60/b/0.02); let s=0; for(let i=lag;i<onset.length;i++) s+=onset[i]*onset[i-lag]; if(s>best){best=s;bpm=b;} }
+  const N=10, seg=Math.floor(env.length/N)||1, curve=[];
+  for(let k=0;k<N;k++){ const sl=env.slice(k*seg,(k+1)*seg); const m=sl.reduce((a,b)=>a+b,0)/(sl.length||1); curve.push(Math.round(100*m/peak)); }
+  const smooth=env.map((_,i)=>{ let s=0,n=0; for(let j=Math.max(0,i-50);j<Math.min(env.length,i+50);j++){ s+=env[j]; n++; } return s/n; });
+  const peakAt=smooth.indexOf(Math.max(...smooth))*0.02;
+  const intro=(smooth.findIndex(v=>db(v)>db(peak)-14))*0.02;
+  const sorted=[...env].sort((a,b)=>a-b);
+  return {duration:+ab.duration.toFixed(1),bpm,avgDb:+db(env.reduce((a,b)=>a+b,0)/env.length).toFixed(1),range:+(db(sorted[Math.floor(sorted.length*.95)])-db(sorted[Math.floor(sorted.length*.2)]+1e-6)).toFixed(1),curve,peakAt:+peakAt.toFixed(1),intro:+Math.max(0,intro).toFixed(1)};
+}
+async function scanLibrary(btn,box){
+  const L=lib(); if(!L.folderId){ box.textContent="Pick a folder first."; return; }
+  btn.disabled=true; const say=t=>{ L.msg=t; box.textContent=t; };
+  try{
+    say("Listing audio in "+L.folderName+"…");
+    L.files=await listAudioIn(L.folderId); save();
+    if(!L.files.length){ say("No audio files in that folder."); btn.disabled=false; return; }
+    let pool=L.files;
+    const ctx="PROJECT\n"+projectText()+"\n\nTRAILERS\n"+cuts().map(c=>cutLabel(c)+" "+(S.project.durations[c]||"")+" · "+shotsOf(c).length+" shots").join("\n");
+    if(pool.length>18){
+      say("Shortlisting "+pool.length+" tracks by name…");
+      const r=await SAMPLE.json("Answer with valid JSON only.\n"+ctx+"\n\nAUDIO FILES\n"+pool.map((f,i)=>"A"+(i+1)+" | "+f.name).join("\n")+'\n\nPick the 18 whose names best suit this trailer (skip SFX, stingers, stems and voice). Return ONLY JSON: {"ids":["A1"]}',{modelTier:"quick",cache:false});
+      const keep=new Set((r.ids||[]).map(s=>Number(String(s).replace(/\D/g,""))-1));
+      const short=pool.filter((_,i)=>keep.has(i)); if(short.length) pool=short.slice(0,18); else pool=pool.slice(0,18);
+    }
+    let n=0;
+    for(const f of pool){
+      n++; if(L.analysis[f.id]) continue;
+      if(f.size&&f.size>60e6){ L.analysis[f.id]={skipped:"too large"}; continue; }
+      say("Listening "+n+"/"+pool.length+": "+f.name);
+      try{ L.analysis[f.id]=await analyzeAudio(await audioBytes(f.id)); }catch(e){ L.analysis[f.id]={skipped:(e&&e.message)||"couldn't read"}; }
+      save();
+    }
+    say("Choosing the best fits…");
+    const rows=pool.map((f,i)=>{ const a=L.analysis[f.id]||{}; return "T"+(i+1)+" | "+f.name+(a.skipped?" | (not analysed)":" | "+Math.round(a.duration)+"s | "+a.bpm+" bpm | avg "+a.avgDb+" dB | dynamics "+a.range+" dB | energy curve "+(a.curve||[]).join(",")+" | biggest moment at "+tc(a.peakAt)+" | quiet intro "+a.intro+"s"); }).join("\n");
+    const r=await SAMPLE.json("Answer with valid JSON only.\nYou are a trailer editor choosing music. Judge fit from the brief's tone and pacing, the trailer lengths, and each track's measured tempo, energy curve and biggest moment. A good trailer bed builds, has a clear peak, and suits the length (a 60s trailer needs ~60-90s of usable music). Don't invent what the music sounds like beyond the data and file name.\n"+ctx+"\n\nCANDIDATES\n"+rows+'\n\nPick the best 3 to 5, best first. startAt = where to start the track so its biggest moment lands near the end of the trailer. Return ONLY JSON: {"picks":[{"id":"T1","why":"one short sentence","mood":"2-3 words","energy":"low|medium|high","startAt":"0:00","fitsCut":"RDA|Launch|Both","licenseFlag":"only if the name suggests another game\'s trailer or a stem"}]}',{modelTier:"default",cache:false});
+    const picks=(r.picks||[]).map(p=>({p,f:pool[Number(String(p.id).replace(/\D/g,""))-1]})).filter(x=>x.f).slice(0,5);
+    S.tracks=(S.tracks||[]).filter(t=>t.locked||t.source!=="Drive library");
+    picks.forEach(({p,f},i)=>{ const a=L.analysis[f.id]||{};
+      S.tracks.push({id:uid(),source:"Drive library",rank:i+1,name:f.name,url:f.url,driveId:f.id,mime:f.mime,size:f.size,mood:p.mood||"",energy:p.energy||"",startAt:p.startAt||"0:00",fitsCut:p.fitsCut||"",
+        notes:[p.why,a.bpm?(a.bpm+" bpm · "+tc(a.duration)+" · peak at "+tc(a.peakAt)):"",p.licenseFlag?"⚠ "+p.licenseFlag:""].filter(Boolean).join("\n")}); });
+    say(picks.length?"Picked "+picks.length+" from "+L.files.length+" tracks.":"No good fits found in that folder.");
+    save(); render();
+  }catch(e){ say("Stopped: "+((e&&e.message)||"unknown error")); }
+  btn.disabled=false;
+}
+let libAudio=null, libBtn=null;
+async function playTrack(t,btn){
+  if(libAudio&&libBtn===btn){ if(libAudio.paused){ libAudio.play(); btn.textContent="❚❚"; } else { libAudio.pause(); btn.textContent="▶"; } return; }
+  if(libAudio){ libAudio.pause(); if(libBtn) libBtn.textContent="▶"; }
+  btn.textContent="…"; libBtn=btn;
+  try{
+    let src;
+    if(window.TSG_SERVER&&t.driveId){ await token(); await swReady(); await sendTokenToSW(); src="/drive-stream/"+t.driveId+(t.size?"?size="+t.size:""); }
+    else if(t.driveId){ src=URL.createObjectURL(new Blob([await audioBytes(t.driveId)],{type:t.mime||"audio/mpeg"})); }
+    else throw new Error("no audio");
+    libAudio=new Audio(src); libAudio.addEventListener("ended",()=>{ btn.textContent="▶"; });
+    const st=parseTc(t.startAt||"0:00")||0;
+    libAudio.addEventListener("loadedmetadata",()=>{ if(st&&st<libAudio.duration) libAudio.currentTime=st; },{once:true});
+    await libAudio.play(); btn.textContent="❚❚";
+  }catch(e){ btn.textContent="▶"; alert("Couldn't play it: "+((e&&e.message)||e)); }
+}
+function musicLibraryPanel(){
+  const L=lib(), box=h("p",{class:"note"},L.msg||"");
+  const picker=MCP?folderPicker(f=>{ L.folderId=f.id; L.folderName=f.title; L.files=[]; L.msg=""; save(); render(); },""):h("p",{class:"note"},"Sign in to use Drive.");
+  const linkIn=h("input",{type:"text",placeholder:"…or paste the folder link"});
+  linkIn.addEventListener("change",()=>{ const id=driveIdFrom(linkIn.value); if(id){ L.folderId=id; L.folderName="Linked folder"; L.files=[]; save(); render(); } });
+  const picks=(S.tracks||[]).filter(t=>t.source==="Drive library").sort((a,b)=>(a.rank||9)-(b.rank||9));
+  return h("div",{class:"panel"},
+    h("div",{class:"row"},h("b",null,"Music folder"),L.folderName?h("span",{class:"counter"},L.folderName+(L.files.length?" · "+L.files.length+" tracks":"")):null,h("span",{class:"spacer"}),
+      h("button",{class:"btn primary",disabled:!L.folderId||!SAMPLE,onclick:e=>scanLibrary(e.currentTarget,box)},picks.length?"Pick again":"Pick the best")),
+    L.folderId?null:h("div",{style:"margin-top:10px"},picker,h("div",{style:"margin-top:8px"},linkIn)),
+    L.folderId?h("button",{class:"btn ghost small",onclick:()=>{ L.folderId=""; L.folderName=""; L.files=[]; save(); render(); }},"Change folder"):null,
+    box,
+    picks.length?h("div",{style:"margin-top:10px;display:flex;flex-direction:column;gap:8px"},picks.map(t=>{ const b=h("button",{class:"btn",style:"width:40px;height:40px;border-radius:50%;padding:0;justify-content:center"},"▶"); b.addEventListener("click",()=>playTrack(t,b));
+      return h("div",{class:"row",style:"flex-wrap:nowrap;align-items:flex-start;background:var(--fill);border-radius:12px;padding:10px 12px"},b,
+        h("div",{style:"flex:1;min-width:0"},h("b",null,(t.rank?t.rank+". ":"")+t.name),h("div",{class:"note"},[t.mood,t.energy,t.fitsCut?("for "+t.fitsCut):null,"start "+t.startAt].filter(Boolean).join(" · ")),h("div",{class:"note",style:"white-space:pre-wrap"},t.notes||"")));
+    })):null);
 }
 
 /* ---------- render ---------- */
