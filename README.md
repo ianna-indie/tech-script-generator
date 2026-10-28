@@ -50,6 +50,15 @@ console.cloud.google.com → enable **Google Drive API** → OAuth consent scree
 `openid`, `email`, `drive.readonly`, `drive.file` → Credentials → **OAuth client ID (Web)** with your
 Vercel URL in **Authorized JavaScript origins**.
 
+## What happens automatically (no action needed)
+
+- Messy AI answers (extra text, stray commas, cut-off lists) are cleaned up; one automatic repair pass if needed.
+- If Rupert accepts fewer images per request, the request is retried within its limit.
+- One automatic retry if Rupert is busy or restarting.
+- Stills sent to the AI are shrunk to stay under Vercel's 4.5 MB request limit.
+- Drive streaming re-fetches your Google sign-in if it expires mid-session.
+- Footage that looks the same throughout still yields at least 8 stills per clip.
+
 ## Limits
 
 - Browser must decode the video: H.264 `.mp4/.mov` fine; ProRes / some HEVC won't play.

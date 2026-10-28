@@ -14,6 +14,22 @@ self.addEventListener("message", (e) => {
   }
 });
 
+// Ask an open page for a (fresh) token — covers the worker being restarted or the token expiring.
+async function askForToken(clientId, expired) {
+  const list = clientId ? [await self.clients.get(clientId)].filter(Boolean) : [];
+  const all = list.length ? list : await self.clients.matchAll({ type: "window" });
+  for (const c of all) {
+    const t = await new Promise((res) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => res(e.data && e.data.token);
+      c.postMessage({ type: "need-token", expired: !!expired }, [ch.port2]);
+      setTimeout(() => res(null), 8000);
+    });
+    if (t) { TOKEN = t; return t; }
+  }
+  return null;
+}
+
 async function fileSize(id) {
   if (sizes.has(id)) return sizes.get(id);
   const r = await fetch("https://www.googleapis.com/drive/v3/files/" + id + "?fields=size&supportsAllDrives=true", { headers: { Authorization: "Bearer " + TOKEN } });
@@ -28,12 +44,17 @@ self.addEventListener("fetch", (event) => {
   const m = url.pathname.match(/^\/drive-stream\/([A-Za-z0-9_-]+)/);
   if (!m) return;
   event.respondWith((async () => {
+    if (!TOKEN) await askForToken(event.clientId, false);
     if (!TOKEN) return new Response("Not signed in", { status: 401 });
     const id = m[1];
     const range = event.request.headers.get("range");
-    const headers = { Authorization: "Bearer " + TOKEN };
-    if (range) headers.Range = range;
-    const res = await fetch("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&supportsAllDrives=true", { headers });
+    const get = () => {
+      const headers = { Authorization: "Bearer " + TOKEN };
+      if (range) headers.Range = range;
+      return fetch("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media&supportsAllDrives=true", { headers });
+    };
+    let res = await get();
+    if (res.status === 401 && (await askForToken(event.clientId, true))) res = await get(); // token expired — refresh once
     if (!res.ok && res.status !== 206) return new Response("Drive: " + (await res.text()), { status: res.status });
     const out = new Headers();
     out.set("Content-Type", res.headers.get("content-type") || "video/mp4");

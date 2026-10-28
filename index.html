@@ -330,15 +330,45 @@ function makeSample(){
       const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({prompt,images,tier:opts.modelTier||"default"})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok){ const e=new Error(j.error||("AI request failed ("+r.status+")")); if(r.status===413) e.message="The request was too big for the server even after shrinking the stills. Try fewer or shorter clips."; e.code=r.status===429?"rate_limited":"error"; throw e; }
-      const txt=String(j.text||"").replace(/```json|```/g,""); const a=txt.indexOf("{"), b2=txt.lastIndexOf("}");
-      try{ return JSON.parse(txt.slice(a,b2+1)); }catch(e){ throw new Error("The AI's answer wasn't valid JSON. Try again."); }
+      const parsed=parseLooseJSON(j.text);
+      if(parsed) return parsed;
+      if(opts._repair) throw new Error("The AI's answer still wasn't valid JSON after a repair pass. Try again"+(j.truncated?" — it was cut off; raise LLM_MAX_TOKENS in Vercel (e.g. 16000).":"."));
+      // One repair pass: ask the model to return the same content as strict JSON.
+      return this.json("Rewrite the following into ONE strictly valid JSON object with the same structure and content. Close any unfinished arrays/objects sensibly. Return ONLY the JSON, no prose, no code fences.\n\n"+String(j.text||"").slice(0,60000),{modelTier:"quick",_repair:true});
     },
     async limits(){ return {images:{maxCount:CFG.maxImages||10}}; }
   };
 }
+
+/* Tolerant JSON parsing for model output: strips fences/think tags, fixes trailing commas & smart quotes,
+   and if the answer was cut off, closes it at the last complete item. Returns null if hopeless. */
+function parseLooseJSON(raw){
+  let t=String(raw||"").replace(/<think>[\s\S]*?<\/think>/g,"").replace(/```(?:json)?/gi,"").trim();
+  const a=t.indexOf("{"); if(a<0) return null; t=t.slice(a);
+  const tryP=x=>{ try{ return JSON.parse(x); }catch(e){ return null; } };
+  const tidy=x=>x.replace(/[\u201C\u201D]/g,'"').replace(/,\s*([}\]])/g,"$1");
+  let r=tryP(t.slice(0,t.lastIndexOf("}")+1)) || tryP(tidy(t.slice(0,t.lastIndexOf("}")+1)));
+  if(r) return r;
+  // Walk the text, remembering the last point where an item closed cleanly.
+  const stack=[]; let inStr=false, esc=false, safe=-1, safeStack=null;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(inStr){ if(esc) esc=false; else if(c==="\\") esc=true; else if(c==='"') inStr=false; continue; }
+    if(c==='"') inStr=true;
+    else if(c==="{"||c==="[") stack.push(c==="{"?"}":"]");
+    else if(c==="}"||c==="]"){ stack.pop(); safe=i; safeStack=stack.slice(); if(!stack.length) break; }
+  }
+  if(safe<0) return null;
+  let cut=t.slice(0,safe+1).replace(/,\s*$/,"");
+  cut+=safeStack.reverse().join("");
+  return tryP(cut)||tryP(tidy(cut));
+}
+
 async function lightUp(){
   try{ const r=await fetch("/api/config",{cache:"no-store"}); CFG=r.ok?await r.json():{configError:"api"}; }catch(e){ CFG={configError:"api"}; }
-  if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js"); }catch(e){} }
+  if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.addEventListener("message",async e=>{ if(e.data&&e.data.type==="need-token"&&e.ports&&e.ports[0]){ let t=null; try{ if(e.data.expired) GEXP=0; t=GTOKEN?await token():null; }catch(err){} e.ports[0].postMessage({token:t}); } });
+  }catch(e){} }
   SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
   DL={save:async({filename,data})=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(data); a.download=filename; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }};
   renderAuth();
@@ -612,7 +642,18 @@ async function extractFrames(){
       kept.push({sourceId:v.id,sourceName:v.name,t,dataUrl:jpegFrom(el,320),kind:"video",hash:hsh}); got++;
       if(i%10===0) setProg(0.05+0.45*((vi-1)/vids.length+(i/samples)/vids.length));
     }
-    logIt("  "+got+" distinct moments found.");
+    // Footage that looks very similar throughout (one level, one camera) can leave too few stills — top up evenly.
+    const MIN_PER_CLIP=8;
+    if(got<MIN_PER_CLIP&&dur>0){
+      const need=MIN_PER_CLIP-got, mine=kept.filter(k=>k.sourceId===v.id);
+      for(let k=1;k<=need+2&&got<MIN_PER_CLIP;k++){
+        const t=dur*k/(need+3);
+        if(mine.some(m=>Math.abs(m.t-t)<dur/(MIN_PER_CLIP*2))) continue;
+        try{ await seekTo(el,t); }catch(e){ continue; }
+        kept.push({sourceId:v.id,sourceName:v.name,t,dataUrl:jpegFrom(el,320),kind:"video",hash:dhash(el)}); got++;
+      }
+    }
+    logIt("  "+got+" moments kept.");
     URL.revokeObjectURL(el.src);
   }
   // Too many? Thin evenly per source so every clip stays represented

@@ -21,7 +21,7 @@ function headers() {
 }
 
 // Streams the reply (Cloudflare drops responses that take > ~100 s) and returns the full text.
-async function complete({ prompt, images = [], tier = "default", maxTokens }) {
+async function complete({ prompt, images = [], tier = "default", maxTokens, json = false, _noJsonMode = false }) {
   const body = {
     model: MODELS[tier] || MODEL,
     stream: true,
@@ -32,7 +32,13 @@ async function complete({ prompt, images = [], tier = "default", maxTokens }) {
       ...images.slice(0, MAX_IMAGES).map((im) => ({ type: "image_url", image_url: { url: "data:" + (im.media_type || "image/jpeg") + ";base64," + im.data } })),
     ] }],
   };
+  if (json && !_noJsonMode && process.env.LLM_JSON_MODE !== "off") body.response_format = { type: "json_object" };
   const r = await fetch(ENDPOINT, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+  if (r.status === 400 && body.response_format) {
+    // Server doesn't support JSON mode — retry without it.
+    const t = await r.clone().text();
+    if (/response_format|json_object|guided/i.test(t)) return complete({ prompt, images, tier, maxTokens, json, _noJsonMode: true });
+  }
   const ctype = r.headers.get("content-type") || "";
   if (!r.ok || /text\/html/.test(ctype)) {
     const raw = await r.text();
@@ -44,10 +50,11 @@ async function complete({ prompt, images = [], tier = "default", maxTokens }) {
   }
   if (/application\/json/.test(ctype)) {
     const j = await r.json();
-    return ((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    const out = ((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    return json ? { text: out, truncated: !!(j.choices && j.choices[0] && j.choices[0].finish_reason === "length") } : out;
   }
   const reader = r.body.getReader(); const dec = new TextDecoder();
-  let buf = "", text = "";
+  let buf = "", text = "", finish = null;
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -62,9 +69,11 @@ async function complete({ prompt, images = [], tier = "default", maxTokens }) {
       if (j.error) { const e = new Error(j.error.message || JSON.stringify(j.error)); e.status = 502; e.url = ENDPOINT; throw e; }
       const d = j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message);
       if (d && typeof d.content === "string") text += d.content;
+      if (j.choices && j.choices[0] && j.choices[0].finish_reason) finish = j.choices[0].finish_reason;
     }
   }
-  return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  const out = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return json ? { text: out, truncated: finish === "length" } : out;
 }
 
 module.exports = { ENDPOINT, KEY, CF_ID, CF_SECRET, MODELS, MAX_IMAGES, complete };
