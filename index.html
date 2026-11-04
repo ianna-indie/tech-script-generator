@@ -2389,15 +2389,16 @@ async function loadProject(id,version){
 
 /* Ready-to-paste Discord messages (Export step): one for the marketing team, one for the developers. */
 const LONGNAME={"Release date announcement":"RDA (release date announcement)","Launch trailer":"launch","Steam teaser":"teaser","Console trailer":"console","Social video":"social","Event trailer":"event","Trailer":""};
-function trailerPhrase(){ const names=cuts().map(c=>c==="Other"?(S.project.videoTypeOther||"trailer"):(c in LONGNAME?LONGNAME[c]:cutLabel(c))).filter(Boolean); if(!names.length) return "trailer";
+function trailerPhrase(){ const names=cuts().map(c=>c==="Other"?(S.project.videoTypeOther||"").replace(/\s*trailer\s*$/i,""):(c in LONGNAME?LONGNAME[c]:cutLabel(c))).filter(Boolean); if(!names.length) return "trailer";
   const list=names.length>1?names.slice(0,-1).join(", ")+" and "+names[names.length-1]:names[0]; return list+" trailer"+(names.length>1?"s":""); }
 function shareMessageText(kind){
   const p=S.project, sh=shr(), ei=S.exportInfo||{}, game=p.game||"the game";
   if(kind==="dev"){
-    const L=["Hi team, I hope you're doing well! :blush: I'm sharing the capture brief for the "+game+" "+trailerPhrase()+" with you. It has every shot we need, how to record it, where to upload your footage, and music for you to choose.",""];
-    L.push("- **Capture brief:** "+(sh.briefUrl||"[publish the developer page first]"),"");
-    L.push("You can also leave suggestions directly on each shot in the link, which will help us quickly identify the shots you're referring to."+(sh.deadline?" If possible, we'd really appreciate the footage by **"+sh.deadline+"**.":""));
-    L.push("","Thank you! :blobcat-coffee:");
+    const handle=(sh.devHandle||localStorage.getItem("tsg_dev_handle")||"").replace(/^@/,"");
+    const L=["Hi "+(handle?"@"+handle+" ":"")+", I hope you're doing well! :blush: I'm sharing the **Technical script | Capture brief** for the **"+game+" "+trailerPhrase()+"** with you. It has every shot we need, how to record it, where to upload your footage, and music for you to choose.",""];
+    L.push("- **Technical script | Capture brief:** "+(sh.briefUrl||"[publish the developer page first]"),"");
+    L.push("You can also leave suggestions directly on each shot in the link, which will help us quickly identify the shots you're referring to.");
+    L.push("","Thank you! :Thumbsup:");
     return L.join("\n");
   }
   const who=sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino";
@@ -2441,7 +2442,7 @@ function shareMessagePanel(){
           else await navigator.clipboard.writeText(ta.value);
         }catch(e){ ta.select(); document.execCommand&&document.execCommand("copy"); }
         msg.textContent=kind==="marketing"?"Copied — paste it in the Wrike comment (links and bullets come with it). Type @ to tag "+(sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino").split(" ")[0]+" so Wrike notifies her.":"Copied — paste it in Discord."; msg.className="okc"; }},"Copy")),
-    kind==="marketing"?h("div",{class:"row",style:"margin-top:8px;gap:8px"},h("span",{class:"note"},"Reviewer"),(()=>{ const i=h("input",{type:"text",value:sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino",style:"max-width:240px"}); i.addEventListener("change",()=>{ sh.reviewer=i.value.trim(); try{ localStorage.setItem("tsg_reviewer",sh.reviewer); }catch(e){} delete sh.msg.marketing; save(); render(); }); return i; })()):h("p",{class:"note",style:"margin-top:6px"},"For the developers — just the developer page link."),
+    kind==="marketing"?h("div",{class:"row",style:"margin-top:8px;gap:8px"},h("span",{class:"note"},"Reviewer"),(()=>{ const i=h("input",{type:"text",value:sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino",style:"max-width:240px"}); i.addEventListener("change",()=>{ sh.reviewer=i.value.trim(); try{ localStorage.setItem("tsg_reviewer",sh.reviewer); }catch(e){} delete sh.msg.marketing; save(); render(); }); return i; })()):h("div",{class:"row",style:"margin-top:8px;gap:8px"},h("span",{class:"note"},"Discord handle"),(()=>{ const i=h("input",{type:"text",placeholder:"e.g. jpswal",value:sh.devHandle||localStorage.getItem("tsg_dev_handle")||"",style:"max-width:200px"}); i.addEventListener("change",()=>{ sh.devHandle=i.value.trim().replace(/^@/,""); delete sh.msg.dev; save(); render(); }); return i; })(),h("span",{class:"note"},"Saved per project")),
     missing.length?h("p",{class:"note",style:"color:var(--warn)"},"To include the links: "+missing.join(" and ")+", then Refresh."):null,
     h("div",{style:"margin-top:8px"},ta),msg);
 }
