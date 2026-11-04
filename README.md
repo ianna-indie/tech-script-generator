@@ -20,6 +20,7 @@ AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 | `api/brief.js`, `api/brief-response.js`, `api/brief-responses.js` | Publish briefs, receive and read developer replies. |
 | `api/projects.js` | Saved projects per indie.io account (Save, Projects, autosave). |
 | `api/_store.js`, `api/_auth.js` | Blob storage + indie.io sign-in check. |
+| `middleware.js`, `login.html`, `api/session.js` | Keep the tool private to indie.io accounts; `/b/…` pages stay public. |
 | `vercel.json` | Timeout, `/b/<id>` route, service-worker headers. |
 
 ## Environment variables (Vercel → project → Environment Variables → Production)
@@ -51,6 +52,13 @@ Brief links look like `https://iio-creative.vercel.app/b/outcity-rda-launch-k3m9
 Vercel → project → **Settings → Domains → Add** → e.g. `iio-creative.vercel.app` (any free `*.vercel.app` name), then set
 `BRIEF_BASE_URL=https://iio-creative.vercel.app` and redeploy. A custom domain like `briefs.indie.io` works the same way (needs a DNS record from IT). Anyone with the link can view the page and send
 a reply (no sign-in), so share it only with the dev team. Publishing again keeps the same link.
+
+## Keep the tool private (indie.io only)
+
+The tool (`/`) only opens for signed-in indie.io accounts; developer pages (`/b/…`) stay public.
+Set `SESSION_SECRET` in Vercel (Production) to a long random string — at least 24 characters, e.g. from a password
+generator — and redeploy. Visitors without a session land on a "Sign in with Google" page; anyone outside indie.io is refused.
+Sessions last 7 days; **Sign out** in the sidebar ends it. Without `SESSION_SECRET`, the tool stays locked behind the login page.
 
 ## Saving progress
 

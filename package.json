@@ -4,5 +4,5 @@
   "private": true,
   "description": "indie.io Tech Script Generator — brief + footage in, branded tech script and developer brief out.",
   "engines": { "node": ">=18" },
-  "dependencies": { "@vercel/blob": "2.8.0" }
+  "dependencies": { "@vercel/blob": "2.8.0", "@vercel/functions": "3.10.1" }
 }

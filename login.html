@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · indie.io creative</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root{--bg:#F5F5F7;--card:#fff;--fg:#1D1D1F;--muted:#6E6E73;--accent:#373278;--accent-fg:#fff;--pink:#FF9999;color-scheme:light;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#000;--card:#1C1C1E;--fg:#F5F5F7;--muted:#98989D;--accent:#9C96F5;--accent-fg:#0B0A1C;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000;--card:#1C1C1E;--fg:#F5F5F7;--muted:#98989D;--accent:#9C96F5;--accent-fg:#0B0A1C;color-scheme:dark}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--card);border-radius:22px;padding:40px 36px;max-width:380px;width:100%;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 40px rgba(0,0,0,.06)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--pink);display:inline-block}
+h1{font-size:26px;letter-spacing:-.02em;margin:14px 0 6px}
+p{color:var(--muted);margin:0 0 26px;font-size:15px}
+button{appearance:none;border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font:600 16px inherit;font-family:inherit;padding:13px 20px;width:100%;cursor:pointer}
+button:disabled{opacity:.5}
+.err{color:#D70015;font-size:14px;margin-top:16px;min-height:20px}
+</style>
+</head>
+<body>
+<main class="card">
+  <span class="dot"></span>
+  <h1>Tech Script Generator</h1>
+  <p>indie.io creative tools</p>
+  <button id="go" disabled>Sign in with Google</button>
+  <div class="err" id="err" role="alert"></div>
+</main>
+<script>
+"use strict";
+const SCOPES="openid email https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file";
+const err=t=>{ document.getElementById("err").textContent=t||""; };
+const nextPath=(()=>{ const n=new URLSearchParams(location.search).get("next")||"/"; return /^\/(?!\/)/.test(n)?n:"/"; })();
+(async()=>{
+  let cfg={}; try{ cfg=await fetch("/api/config",{cache:"no-store"}).then(r=>r.json()); }catch(e){}
+  if(!cfg.googleClientId){ err("GOOGLE_CLIENT_ID isn't set in Vercel."); return; }
+  const wait=()=>new Promise(r=>{ const t0=Date.now(); (function p(){ if(window.google&&google.accounts&&google.accounts.oauth2) r(true); else if(Date.now()-t0>8000) r(false); else setTimeout(p,100); })(); });
+  if(!await wait()){ err("Google sign-in didn't load. Reload the page."); return; }
+  const btn=document.getElementById("go");
+  const client=google.accounts.oauth2.initTokenClient({client_id:cfg.googleClientId,scope:SCOPES,hd:"indie.io",callback:async r=>{
+    if(r.error){ err(r.error_description||r.error); btn.disabled=false; return; }
+    try{
+      const res=await fetch("/api/session",{method:"POST",headers:{Authorization:"Bearer "+r.access_token}});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(j.error||("Sign-in failed ("+res.status+")"));
+      sessionStorage.setItem("tsg_hint",j.email||"");
+      location.replace(nextPath);
+    }catch(e){ err(e.message); btn.disabled=false; }
+  }});
+  btn.disabled=false;
+  btn.addEventListener("click",()=>{ err(""); btn.disabled=true; client.requestAccessToken({prompt:""}); });
+})();
+</script>
+</body>
+</html>

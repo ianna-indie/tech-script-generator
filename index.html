@@ -319,7 +319,7 @@ function signIn(interactive){
     tokenClient.requestAccessToken({prompt:interactive?"":"none",login_hint:sessionStorage.getItem("tsg_hint")||undefined});
   });
 }
-function signOut(){ if(GTOKEN&&window.google) google.accounts.oauth2.revoke(GTOKEN,()=>{}); GTOKEN=null; GEMAIL=""; MCP=null; sessionStorage.removeItem("tsg_hint"); renderAuth(); render(); }
+function signOut(){ if(GTOKEN&&window.google) google.accounts.oauth2.revoke(GTOKEN,()=>{}); GTOKEN=null; GEMAIL=""; MCP=null; sessionStorage.removeItem("tsg_hint"); fetch("/api/session",{method:"DELETE"}).finally(()=>{ if(window.TSG_PRIVATE) location.replace("/login.html"); else { renderAuth(); render(); } }); }
 async function token(){ if(GTOKEN&&Date.now()<GEXP) return GTOKEN; return signIn(false).catch(()=>signIn(true)); }
 const DAPI="https://www.googleapis.com/drive/v3";
 async function gfetch(url,opts={}){ const t=await token(); const r=await fetch(url,Object.assign({},opts,{headers:Object.assign({Authorization:"Bearer "+t},opts.headers||{})}));
@@ -420,6 +420,7 @@ function parseLooseJSON(raw){
 
 async function lightUp(){
   try{ const r=await fetch("/api/config",{cache:"no-store"}); CFG=r.ok?await r.json():{configError:"api"}; }catch(e){ CFG={configError:"api"}; }
+  window.TSG_PRIVATE=!!CFG.private;
   if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js");
     navigator.serviceWorker.addEventListener("message",async e=>{ if(e.data&&e.data.type==="need-token"&&e.ports&&e.ports[0]){ let t=null; try{ if(e.data.expired) GEXP=0; t=GTOKEN?await token():null; }catch(err){} e.ports[0].postMessage({token:t}); } });
   }catch(e){} }
