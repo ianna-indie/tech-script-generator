@@ -871,7 +871,8 @@ function shotCard(s,i,list){
   const desc=h("textarea",{rows:3,oninput:e=>{s.desc=e.target.value; s.edited=true; save();}}); desc.value=s.desc;
   const notes=h("textarea",{rows:2,oninput:e=>{s.notes=e.target.value; save();}}); notes.value=s.notes;
   const move=(d)=>{ const o=list[i+d]; if(!o) return; const a=S.shots.indexOf(s), b=S.shots.indexOf(o); [S.shots[a],S.shots[b]]=[S.shots[b],S.shots[a]]; save(); render(); };
-  return h("article",{class:"shot","aria-label":"Shot "+pad(i+1)},
+  const dropOn=e=>{ e.preventDefault(); e.currentTarget.style.outline=""; if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length) addScreenshots(s,e.dataTransfer.files); };
+  return h("article",{class:"shot","aria-label":"Shot "+pad(i+1),ondragover:e=>{ if([...(e.dataTransfer&&e.dataTransfer.types||[])].includes("Files")){ e.preventDefault(); e.currentTarget.style.outline="2px dashed var(--indigo)"; } },ondragleave:e=>{ e.currentTarget.style.outline=""; },ondrop:dropOn},
     h("div",{class:"num"},pad(i+1),h("button",{onclick:()=>move(-1),"aria-label":"Move up",disabled:i===0},"▲"),h("button",{onclick:()=>move(1),"aria-label":"Move down",disabled:i===list.length-1},"▼"),h("button",{onclick:()=>{ if(confirm("Delete shot "+pad(i+1)+"?")){ S.shots.splice(S.shots.indexOf(s),1); save(); render(); } },"aria-label":"Delete shot"},"✕")),
     h("div",{class:"body"},
       h("label",{class:"f"},"Brief / description — what devs need to record",desc),
@@ -884,7 +885,7 @@ function shotCard(s,i,list){
         h("button",{class:"btn small",onclick:()=>pickFrame(s)},"Choose from all frames"),
         h("button",{class:"btn small",onclick:()=>pasteFor(s)},"Capture from source"),
         h("button",{class:"btn small",onclick:()=>captureAt(s)},"Capture in workspace"),
-        h("button",{class:"btn small",onclick:()=>uploadFor(s)},"Upload screenshot"),
+        h("button",{class:"btn small",onclick:()=>uploadFor(s),title:"Or drag images onto this shot"},"Upload screenshot"),
         h("button",{class:"btn small",onclick:()=>{ s.selected="none"; s.manual=true; s.status="No screenshot"; save(); render(); }},"No screenshot needed"),
         h("button",{class:"btn small",disabled:!SAMPLE||!S.frames.length,onclick:e=>moreOptions(s,e.currentTarget)},"More options")),
       h("div",{class:"cols3"},
@@ -912,6 +913,20 @@ function addCaptured(s,frame,label){
   s.options.push({frame:frame.id,reason:label});
   if(!s.selected||s.selected==="none"){ s.selected=frame.id; }
   s.status="Proposed"; save();
+}
+
+/* Upload one or more screenshots for a shot — each becomes an option; the first is selected. Also used by drag-and-drop onto a shot. */
+async function addScreenshots(s,files){
+  const imgs=[...files].filter(f=>/^image\//.test(f.type)||/\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name));
+  if(!imgs.length){ alert("Pick an image file (PNG or JPG)."); return; }
+  let first=null;
+  for(const f of imgs){ try{ const d=await fileToThumb(f,640); const id="U"+uid().slice(0,5).toUpperCase();
+    addCaptured(s,{id,sourceId:null,sourceName:f.name,t:null,dataUrl:d,kind:"image",manual:true},"Uploaded by you"); if(!first) first=id; }catch(e){ alert("Couldn't read "+f.name); } }
+  if(first){ s.selected=first; s.manual=true; s.status="Proposed"; save(); render(); }
+}
+function uploadFor(s){
+  const inp=h("input",{type:"file",accept:"image/*",multiple:true,class:"hidden",onchange:e=>{ const fs=[...e.target.files]; inp.remove(); if(fs.length) addScreenshots(s,fs); }});
+  document.body.append(inp); inp.click();
 }
 function pasteFor(s){ captureDialog(s); }
 function captureDialog(s, preferId){
