@@ -1391,6 +1391,7 @@ const fontWeight=st=>SINGLE_WEIGHT.has(st.font)?400:((st.weight||700)>=600?700:4
 const loadedFonts=new Set();
 async function ensureFont(st){
   if(st.mode==="psd"&&st.psd) return ensurePsdAssets(st);
+  if(st.customFont&&st.font===st.customFont.name){ await addCustomFont(st.customFont); return; }
   const fam=st.font; if(!loadedFonts.has(fam)){ loadedFonts.add(fam);
     const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+(SINGLE_WEIGHT.has(fam)?"":":wght@400;700")+"&display=swap"; document.head.append(l); }
   try{ await document.fonts.load(fontWeight(st)+" 40px \""+fam+"\""); }catch(e){}
@@ -1456,16 +1457,16 @@ function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.on
 /* Still + super → JPEG data URL (used in the sheet, the brief page and downloads). */
 async function compositeStill(s,W=960){
   const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
-  if(!hasSuper(s)) return f.dataUrl;
+  if(!hasCard(s)) return f.dataUrl; await prepCard(s);
   const st=sty(); await ensureFont(st);
   const im=await loadImg(f.dataUrl); const H=Math.round(W*9/16);
   const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
   const sc=Math.max(W/im.width,H/im.height); x.drawImage(im,(W-im.width*sc)/2,(H-im.height*sc)/2,im.width*sc,im.height*sc);
-  drawSuper(x,superText(s),st,W,H); return c.toDataURL("image/jpeg",0.85);
+  drawCard(x,s,W,H); return c.toDataURL("image/jpeg",0.85);
 }
-async function overlayPNG(s,W=1920,H=1080){ const st=sty(); await ensureFont(st); const c=document.createElement("canvas"); c.width=W; c.height=H; drawSuper(c.getContext("2d"),superText(s),st,W,H); return new Promise(r=>c.toBlob(r,"image/png")); }
+async function overlayPNG(s,W=1920,H=1080){ const st=sty(); await ensureFont(st); await prepCard(s); const c=document.createElement("canvas"); c.width=W; c.height=H; drawCard(c.getContext("2d"),s,W,H); return new Promise(r=>c.toBlob(r,"image/png")); }
 /* After Effects ExtendScript: one comp per super with an editable text layer + shape plate. */
-function aePostScript(st){ const base=st.font.replace(/\s+/g,""); return SINGLE_WEIGHT.has(st.font)?base+"-Regular":base+(fontWeight(st)>=700?"-Bold":"-Regular"); }
+function aePostScript(st){ if(st.customFont&&st.font===st.customFont.name&&st.customFont.ps) return st.customFont.ps; const base=st.font.replace(/\s+/g,""); return SINGLE_WEIGHT.has(st.font)?base+"-Regular":base+(fontWeight(st)>=700?"-Bold":"-Regular"); }
 function designAE(items,st){
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
   const comps=items.map(it=>{ const L=layoutSuper(it.text,st,1920,1080), b=L.box;
@@ -1511,7 +1512,7 @@ alert("Built "+CARDS.length+" super comps in the 'Tech Script supers' folder.");
 `;
 }
 const fileSafe=s=>String(s).replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,40)||"card";
-function superItems(){ const out=[]; cuts().forEach(c=>shotsOf(c).forEach((s,i)=>{ if(hasSuper(s)) out.push({s,cut:c,key:cutLabel(c)+"-"+pad(i+1),name:cutLabel(c)+" "+pad(i+1)+" - "+superText(s).slice(0,40),text:superText(s)}); })); return out; }
+function superItems(){ const out=[]; cuts().forEach(c=>shotsOf(c).forEach((s,i)=>{ if(hasCard(s)) out.push({s,cut:c,key:cutLabel(c)+"-"+pad(i+1),name:cutLabel(c)+" "+pad(i+1)+" - "+superText(s).slice(0,40),text:superText(s)}); })); return out; }
 async function downloadSupersZip(btn,msg){
   if(!window.JSZip){ msg.textContent="The zip library didn't load. Check your connection and reload."; msg.className="err"; return; }
   const items=superItems(); if(!items.length){ msg.textContent="No shots have on-screen text yet. Set Graphics + On-screen text on a shot first."; msg.className="err"; return; }
@@ -1521,6 +1522,7 @@ async function downloadSupersZip(btn,msg){
     const z=new JSZip(), base=(S.exportInfo.sheetName||defaultName()).replace(/technical_script$/,"supers");
     for(const it of items){
       const nm=it.key+"_"+fileSafe(it.text);
+      if(it.s.superArt){ z.file("edited_in_photoshop/"+nm+".png",await overlayPNG(it.s)); z.file("png_transparent/"+nm+".png",await overlayPNG(it.s)); continue; }
       z.file("svg/"+nm+".svg",superSVG(it.text,st,1920,1080,{embedFontLink:true}));
       z.file("png_transparent/"+nm+".png",await overlayPNG(it.s));
       const f=it.s.selected&&it.s.selected!=="none"?frameById(it.s.selected):null;
@@ -1532,7 +1534,8 @@ async function downloadSupersZip(btn,msg){
       }
     }
     if(isPsd(st)){ const art=renderArtwork(st,1920,1080); z.file("psd_layers/artwork.png",art.toDataURL("image/png").split(",")[1],{base64:true}); }
-    z.file("after_effects/build_supers.jsx",aeScript(items.map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
+    const cf=isPsd(st)?st.psdFont:(st.customFont&&st.font===st.customFont.name?st.customFont:null); if(cf) z.file("fonts/"+(cf.file||cf.name+".otf"),cf.data.split(",")[1],{base64:true});
+    z.file("after_effects/build_supers.jsx",aeScript(items.filter(it=>!it.s.superArt).map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
     z.file("README.txt",`On-screen text (supers) — ${S.project.game||""}
 Font: ${st.font} (${fontWeight(st)}). Install it from Google Fonts or Adobe Fonts before opening the files.
 Colours: text ${st.text}, plate ${st.plateColor} at ${Math.round(st.plateOpacity*100)}%, accent ${st.accent}. Plate: ${st.plate}. Position: ${st.position}.
@@ -1580,15 +1583,20 @@ function stepSupers(){
       const box=h("div",{style:"position:relative;aspect-ratio:16/9;background:#08071A;border-radius:6px;overflow:hidden"});
       if(f&&f.dataUrl) box.append(h("img",{src:f.dataUrl,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
       const holder=h("div",{style:"position:absolute;inset:0"});
-      const paint=()=>{ holder.innerHTML=superSVG(it.s?superText(it.s):it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); };
+      const paint=()=>{ if(it.s&&it.s.superArt){ holder.replaceChildren(h("img",{src:it.s.superArt,alt:"",style:"position:absolute;inset:0;width:100%;height:100%"})); return; } holder.innerHTML=superSVG(it.s?superText(it.s):it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); };
       paint(); box.append(holder);
-      if(isPsd(st)){ box.style.cursor="grab"; box.style.touchAction="none";
+      if(isPsd(st)&&!(it.s&&it.s.superArt)){ box.style.cursor="grab"; box.style.touchAction="none";
         box.addEventListener("pointerdown",e=>{ box.setPointerCapture(e.pointerId); box.style.cursor="grabbing"; const k=1920/box.clientWidth, sx=e.clientX, sy=e.clientY, dx0=st.psdAdj.dx, dy0=st.psdAdj.dy;
           const mv=ev=>{ st.psdAdj.dx=Math.round(dx0+(ev.clientX-sx)*k); st.psdAdj.dy=Math.round(dy0+(ev.clientY-sy)*k); paint(); };
           const upf=()=>{ box.removeEventListener("pointermove",mv); box.style.cursor="grab"; save(); refresh(); };
           box.addEventListener("pointermove",mv); box.addEventListener("pointerup",upf,{once:true}); box.addEventListener("pointercancel",upf,{once:true}); }); }
       const retype=it.s?(()=>{ const i=h("input",{type:"text",value:it.s.superText||"",placeholder:"Type the on-screen text","aria-label":"On-screen text for "+it.key}); i.addEventListener("input",e=>{ it.s.superText=e.target.value; save(); paint(); }); return i; })():null;
-      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px;flex-wrap:nowrap"},h("b",null,it.key),retype||h("span",{class:"note"},"Sample — add on-screen text to shots to see them here")));
+      const tools=it.s?h("div",{class:"row",style:"margin-top:6px;gap:6px"},
+        h("button",{class:"btn small",onclick:e=>downloadCardPSD(it.s,e.currentTarget)},"Edit in Photoshop"),
+        h("button",{class:"btn small",onclick:()=>uploadCardArt(it.s,()=>render())},it.s.superArt?"Replace PNG":"Upload PNG"),
+        it.s.superArt?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Edited in Photoshop"):null,
+        it.s.superArt?h("button",{class:"btn ghost small",onclick:()=>{ it.s.superArt=null; save(); render(); }},"Back to generated"):null):null;
+      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px;flex-wrap:nowrap"},h("b",null,it.key),it.s&&it.s.superArt?h("span",{class:"note"},"Using your PNG"):(retype||h("span",{class:"note"},"Sample — add on-screen text to shots to see them here"))),tools);
     }));
   }
   function superTextDemo(){ return st.upper?(S.project.game||"Your game").toUpperCase()+" — COMING SOON":(S.project.game||"Your game")+" — coming soon"; }
@@ -1603,12 +1611,16 @@ function stepSupers(){
       h("div",{class:"row"},h("b",null,"Look"),st.why?h("span",{class:"note"},st.why):null,h("span",{class:"spacer"}),h("button",{class:"btn primary small",disabled:!SAMPLE,onclick:e=>suggestStyle(e.currentTarget,msg)},"Suggest a look from the brief"),h("button",{class:"btn small",onclick:()=>{ S.style=Object.assign({},DEFAULT_STYLE); save(); render(); }},"Reset")),
       msg,
       h("div",{class:"grid2",style:"margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"},
-        fld("Font",selectOf("font",FONT_CHOICES)), fld("Size",range("size",36,160,2)), fld("Letter spacing",range("tracking",-0.05,0.3,0.01)),
+        h("label",{class:"f"},"Font",selectOf("font",st.customFont?[st.customFont.name,...FONT_CHOICES]:FONT_CHOICES),h("button",{class:"btn ghost small",style:"align-self:flex-start;padding:2px 0",onclick:()=>fontUploader(cf=>{ st.customFont=cf; st.font=cf.name; save(); render(); })},"Upload font file")), fld("Size",range("size",36,160,2)), fld("Letter spacing",range("tracking",-0.05,0.3,0.01)),
         fld("Text colour",color("text")), fld("Plate",selectOf("plate",PLATES)), fld("Plate colour",color("plateColor")),
         fld("Plate opacity",range("plateOpacity",0,1,0.05)), fld("Accent",color("accent")), fld("Position",selectOf("position",POSITIONS)),
         h("div",{class:"f"},"Options",check("upper","ALL CAPS"),check("shadow","Drop shadow"))),
       h("p",{class:"note"},"Draft look — devs see these marked as not final.")),
-    h("div",{class:"row",style:"margin-top:16px"},h("b",null,items.length+" card(s)"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download (SVG · PNG · AE)")),
+    h("div",{class:"row",style:"margin-top:16px"},h("b",null,items.length+" card(s)"),h("span",{class:"spacer"}),
+      h("button",{class:"btn",onclick:e=>downloadAllCardPSDs(e.currentTarget,dmsg)},"Edit all in Photoshop"),
+      h("button",{class:"btn",onclick:()=>uploadManyCardArt(dmsg)},"Upload edited cards"),
+      h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download (SVG · PNG · AE)")),
+    h("p",{class:"note",id:"cardsMsg"},"Photoshop round-trip: get the layered PSDs, edit, export PNGs with the same names, upload them all at once."),
     dmsg, grid,
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("button",{class:"btn primary",onclick:()=>go(6)},"Continue to share"))
   ];
@@ -1711,7 +1723,7 @@ async function ensurePsdAssets(st){
   if(!isPsd(st)) return;
   const srcs=[]; st.psd.layers.forEach(l=>{ if(l.src) srcs.push(l.src); if(l.mask&&l.mask.src) srcs.push(l.mask.src); });
   await Promise.all(srcs.filter(s=>!psdImgCache.has(s)).map(s=>loadImg(s).then(im=>psdImgCache.set(s,im)).catch(()=>{})));
-  if(st.psdFont){ try{ if(!document.fonts.check("40px \""+st.psdFont.name+"\"")){ const ff=new FontFace(st.psdFont.name,"url("+st.psdFont.data+")"); await ff.load(); document.fonts.add(ff); } }catch(e){} }
+  if(st.psdFont) await addCustomFont(st.psdFont);
   for(const l of st.psd.layers.filter(l=>l.kind==="text")){
     const fam=psdFontOf(st,l);
     if(!loadedFonts.has(fam)&&!(st.psdFont&&st.psdFont.name===fam)){ loadedFonts.add(fam); const ln=document.createElement("link"); ln.rel="stylesheet"; ln.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+":ital,wght@0,400;0,700;1,400;1,700&display=swap"; document.head.append(ln);
@@ -1720,7 +1732,7 @@ async function ensurePsdAssets(st){
   }
 }
 const psdFontOf=(st,l)=>l.primary&&st.psdAdj.font?st.psdAdj.font:(l.primary&&st.psdFont&&!st.psdAdj.font?st.psdFont.name:l.font);
-const fontAvailable=(st,l)=>{ try{ return document.fonts.check((l.italic?"italic ":"")+l.weight+" 40px \""+psdFontOf(st,l)+"\""); }catch(e){ return false; } };
+const fontAvailable=(st,l)=>{ const f=psdFontOf(st,l); if(customLoaded.has(f)) return true; try{ return document.fonts.check((l.italic?"italic ":"")+l.weight+" 40px \""+psdFontOf(st,l)+"\""); }catch(e){ return false; } };
 function psdFrame(st,FW,FH){
   const P=st.psd, A=st.psdAdj, k=FW/1920; let s=P.fullFrame?1920/P.W:1; const ox=P.fullFrame?0:96, oy=P.fullFrame?0:1080-96-P.H; s*=A.scale;
   return {map:(x,y)=>[(ox+x*s+A.dx)*k,(oy+y*s+A.dy)*k],s:s*k};
@@ -1800,7 +1812,7 @@ function psdAE(items,st){
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
   const texts=st.psd.layers.filter(l=>l.kind==="text");
   const cards=items.map(it=>`{name:${JSON.stringify(it.name)},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(st,l,psdTextFor(l,it.text),1920,1080), fx=textFx(st,l);
-    return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(l.primary&&A.font?A.font.replace(/\s+/g,""):l.ps)},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${T.base.toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary},opacity:${Math.round(T.opacity*100)},stroke:${fx.stroke?`{w:${(fx.stroke.width*F.s).toFixed(1)},c:${rgb(fx.stroke.color)}}`:"null"},shadow:${fx.shadow?`{c:${rgb(fx.shadow.color)},o:${Math.round(fx.shadow.opacity*255)},d:${((fx.shadow.distance||0)*F.s).toFixed(1)},a:${fx.shadow.angle||120},s:${((fx.shadow.blur||0)*F.s).toFixed(1)}}`:"null"}}`; }).join(",")}]}`).join(",\n  ");
+    return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(l.primary&&A.font?(st.psdFont&&A.font===st.psdFont.name?st.psdFont.ps:A.font.replace(/\s+/g,"")):l.ps)},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${T.base.toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary},opacity:${Math.round(T.opacity*100)},stroke:${fx.stroke?`{w:${(fx.stroke.width*F.s).toFixed(1)},c:${rgb(fx.stroke.color)}}`:"null"},shadow:${fx.shadow?`{c:${rgb(fx.shadow.color)},o:${Math.round(fx.shadow.opacity*255)},d:${((fx.shadow.distance||0)*F.s).toFixed(1)},a:${fx.shadow.angle||120},s:${((fx.shadow.blur||0)*F.s).toFixed(1)}}`:"null"}}`; }).join(",")}]}`).join(",\n  ");
   return `// Tech Script Generator — one After Effects comp per on-screen text card, rebuilt from your PSD template (${st.psd.name}).
 // File > Scripts > Run Script File… Keep this file inside "after_effects", next to "psd_layers" and "stills".
 // Fonts use the PSD's PostScript names — install them first so the text layers keep the right font.
@@ -1850,7 +1862,7 @@ function psdPanel(refresh){
   const msg=h("p",{class:"note"});
   const up=h("input",{type:"file",accept:".psd,.psb,image/vnd.adobe.photoshop",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; msg.textContent="Reading "+f.name+"…"; msg.className="note"; try{ await importPSD(f); await ensurePsdAssets(sty()); render(); }catch(err){ msg.textContent=(err&&err.message)||"Couldn't read that PSD."; msg.className="err";
     if(err&&err.noText&&err.preview&&SAMPLE){ msg.after(h("div",{class:"row",style:"margin-top:8px"},h("img",{src:err.preview,alt:"",style:"width:220px;border-radius:8px"}),h("button",{class:"btn primary small",onclick:e2=>matchLookFromImage(err.preview,e2.currentTarget,msg)},"Match this look with AI"))); } } }});
-  const fontUp=h("input",{type:"file",accept:".otf,.ttf,.woff,.woff2",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }); const name=f.name.replace(/\.[^.]+$/,""); st.psdFont={name,data}; A.font=name; save(); await ensurePsdAssets(st); render(); }});
+  const fontUp={click:()=>fontUploader(cf=>{ st.psdFont=cf; A.font=cf.name; artCache.clear(); save(); render(); })};
   if(!P) return h("div",{class:"panel"},h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:()=>up.click()},"Upload PSD")),up,msg,h("p",{class:"note"},"Text must be live type layers."));
   const set=(path,v)=>{ const ks=path.split("."); let o=A; while(ks.length>1) o=o[ks.shift()]; o[ks[0]]=v; save(); refresh(); };
   const val=path=>path.split(".").reduce((o,k)=>o[k],A);
@@ -1873,7 +1885,7 @@ function psdPanel(refresh){
     cmp.append(tile("In Photoshop",h("img",{src:P.preview,alt:"",style:"width:100%;height:100%;display:block"})),tile("Rebuilt here",rb));
   }
   return h("div",{class:"panel"},
-    h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"counter"},P.name),h("span",{class:"spacer"}),h("button",{class:"btn small",onclick:()=>up.click()},"Replace"),h("button",{class:"btn small ghost",onclick:()=>{ st.mode="design"; save(); render(); }},"Use simple design")),up,fontUp,msg,
+    h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"counter"},P.name),h("span",{class:"spacer"}),h("button",{class:"btn small",onclick:()=>up.click()},"Replace"),h("button",{class:"btn small ghost",onclick:()=>{ st.mode="design"; save(); render(); }},"Use simple design")),up,msg,
     cmp,
     (P.warnings||[]).length||missing.length?h("div",{class:"note",style:"margin-top:10px;color:var(--warn)"},[missing.length?"Font not installed: "+[...new Set(missing)].join(", ")+" — upload the font file below for an exact match.":null,(P.warnings||[]).length?"Notes: "+P.warnings.join(", ")+".":null].filter(Boolean).join(" ")):null,
     h("div",{class:"row",style:"margin-top:10px;gap:6px"},h("span",{class:"note"},"Retype layer:"),h("select",{onchange:e=>{ texts.forEach(l=>l.primary=l.name===e.target.value); save(); render(); }},texts.map(l=>h("option",{value:l.name,selected:l.primary},l.name+" — “"+l.text.slice(0,24)+"”")))),
@@ -1886,11 +1898,127 @@ function psdPanel(refresh){
     h("p",{class:"note",style:"margin-top:8px"},"Drag a card below to move it. Retype under each card."));
 }
 
+/* ===================== CUSTOM FONTS + PHOTOSHOP ROUND-TRIP ===================== */
+const customLoaded=new Set();
+async function addCustomFont(cf){
+  if(!cf||!cf.data||customLoaded.has(cf.name)) return;
+  try{ const ff=new FontFace(cf.name,"url("+cf.data+")"); await ff.load(); document.fonts.add(ff); customLoaded.add(cf.name); artCache&&artCache.clear(); }catch(e){ console.warn("font",e); }
+}
+/* Read the real family and PostScript names from a .ttf/.otf so Photoshop and After Effects find the font. */
+function fontNames(buf){
+  try{ const v=new DataView(buf), n=v.getUint16(4); let nameOff=-1;
+    for(let i=0;i<n;i++){ const r=12+i*16; if(String.fromCharCode(v.getUint8(r),v.getUint8(r+1),v.getUint8(r+2),v.getUint8(r+3))==="name"){ nameOff=v.getUint32(r+8); break; } }
+    if(nameOff<0) return {};
+    const cnt=v.getUint16(nameOff+2), so=nameOff+v.getUint16(nameOff+4), out={};
+    for(let i=0;i<cnt;i++){ const r=nameOff+6+i*12, pid=v.getUint16(r), id=v.getUint16(r+6), len=v.getUint16(r+8), off=so+v.getUint16(r+10);
+      if(![1,2,4,6,16,17].includes(id)) continue; let str="";
+      if(pid===3||pid===0){ for(let j=0;j<len;j+=2) str+=String.fromCharCode(v.getUint16(off+j)); } else if(pid===1){ for(let j=0;j<len;j++) str+=String.fromCharCode(v.getUint8(off+j)); } else continue;
+      if(!out[id]||pid===3) out[id]=str; }
+    return {family:out[16]||out[1],style:out[17]||out[2],full:out[4],ps:out[6]};
+  }catch(e){ return {}; }
+}
+function fontUploader(onDone){
+  const inp=h("input",{type:"file",accept:".otf,.ttf,.woff,.woff2,font/*",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; inp.remove(); if(!f) return;
+    const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); });
+    const nm=/\.(ttf|otf)$/i.test(f.name)?fontNames(await f.arrayBuffer()):{}, base=f.name.replace(/\.[^.]+$/,"");
+    const cf={name:(nm.full||nm.family||base).replace(/[^\w\- ]+/g," ").trim()||"Custom font",ps:nm.ps||base.replace(/\s+/g,""),data,file:f.name};
+    await addCustomFont(cf); onDone(cf); }});
+  document.body.append(inp); inp.click();
+}
+/* Cards edited in Photoshop: a PNG (or PSD) that replaces the generated overlay for that shot. */
+const artImg=new Map();
+async function prepCard(s){ if(s&&s.superArt&&!artImg.has(s.superArt)){ try{ artImg.set(s.superArt,await loadImg(s.superArt)); }catch(e){} } }
+function drawCard(ctx,s,W,H){ if(s.superArt&&artImg.get(s.superArt)) ctx.drawImage(artImg.get(s.superArt),0,0,W,H); else drawSuper(ctx,superText(s),sty(),W,H); }
+const hasCard=s=>!!(s&&(s.superArt||hasSuper(s)));
+async function stillCanvas(s,W=1920,H=1080){
+  const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
+  const im=await loadImg(f.dataUrl), c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d"); const sc=Math.max(W/im.width,H/im.height); x.drawImage(im,(W-im.width*sc)/2,(H-im.height*sc)/2,im.width*sc,im.height*sc); return c;
+}
+const rgbObj=hex=>{ const n=parseInt(String(hex||"#FFFFFF").slice(1),16); return {r:n>>16&255,g:n>>8&255,b:n&255}; };
+function psText(name,text,font,size,color,x,baseline,just,tracking,fx){
+  const lines=String(text).split("\n"), w=Math.max(...lines.map(l=>l.length))*size*0.6;
+  const left=just==="center"?x-w/2:just==="right"?x-w:x;
+  const L={name,left:Math.round(left),top:Math.round(baseline-size),right:Math.round(left+w),bottom:Math.round(baseline+size*0.3*lines.length),
+    text:{text:lines.join("\r"),transform:[1,0,0,1,x,baseline],style:{font:{name:font},fontSize:size,fillColor:rgbObj(color),tracking:Math.round((tracking||0)*1000)},paragraphStyle:{justification:just||"left"}}};
+  const eff={};
+  if(fx&&fx.stroke&&fx.stroke.width>0) eff.stroke=[{enabled:true,present:true,showInDialog:true,size:{units:"Pixels",value:fx.stroke.width},color:rgbObj(fx.stroke.color),position:"outside",fillType:"color",blendMode:"normal",opacity:1}];
+  if(fx&&fx.shadow) eff.dropShadow=[{enabled:true,present:true,showInDialog:true,color:rgbObj(fx.shadow.color),opacity:fx.shadow.opacity==null?.75:fx.shadow.opacity,angle:fx.shadow.angle||120,distance:{units:"Pixels",value:fx.shadow.distance||0},size:{units:"Pixels",value:fx.shadow.blur||0},blendMode:"multiply",useGlobalLight:false}];
+  if(Object.keys(eff).length) L.effects=eff;
+  return L;
+}
+/* One layered PSD per card: reference still (bottom, to hide before export) + artwork + live, editable text layers. */
+async function cardPSD(s){
+  await loadPsdLib(); const st=sty(), W=1920, H=1080, text=superText(s), kids=[];
+  const still=await stillCanvas(s,W,H); if(still) kids.push({name:"Reference still — hide before exporting PNG",left:0,top:0,right:W,bottom:H,canvas:still});
+  await ensureFont(st);
+  if(isPsd(st)){
+    const art=renderArtwork(st,W,H); kids.push({name:"Artwork",left:0,top:0,right:W,bottom:H,canvas:art});
+    for(const l of st.psd.layers.filter(l=>l.kind==="text")){ const T=psdTextLayout(st,l,psdTextFor(l,text),W,H), fx=textFx(st,l);
+      kids.push(psText(l.name+(l.primary?" (edit me)":""),T.lines.join("\n"),l.primary&&st.psdAdj.font?(st.psdFont&&st.psdAdj.font===st.psdFont.name?st.psdFont.ps:st.psdAdj.font.replace(/\s+/g,"")):l.ps,Math.round(T.size),T.color,T.ax,T.base,l.align,(l.primary?st.psdAdj.tracking:l.tracking),fx)); }
+  } else {
+    const art=document.createElement("canvas"); art.width=W; art.height=H; designDraw(art.getContext("2d"),text,Object.assign({},st,{text:"rgba(0,0,0,0)",shadow:false}),W,H);
+    kids.push({name:"Plate",left:0,top:0,right:W,bottom:H,canvas:art});
+    const L=layoutSuper(text,st,W,H), b=L.box, x=L.anchor==="middle"?b.x+b.w/2:b.x+L.padX;
+    const fontPS=st.customFont&&st.font===st.customFont.name?(st.customFont.ps||st.customFont.name.replace(/\s+/g,"")):aePostScript(st);
+    kids.push(psText("Super text (edit me)",L.lines.join("\n"),fontPS,L.fs,st.text,x,b.y+L.padY+L.fs*0.86,L.anchor==="middle"?"center":"left",st.tracking,st.shadow?{shadow:{color:"#000000",opacity:.6,distance:3,angle:90,blur:8}}:null));
+  }
+  const comp=document.createElement("canvas"); comp.width=W; comp.height=H; const cx=comp.getContext("2d"); if(still) cx.drawImage(still,0,0); drawCard(cx,Object.assign({},s,{superArt:null}),W,H);
+  return new Uint8Array(agPsd.writePsd({width:W,height:H,canvas:comp,children:kids},{invalidateTextLayers:true}));
+}
+const cardKey=(s)=>cutLabel(s.cut)+"-"+pad(shotsOf(s.cut).indexOf(s)+1);
+async function downloadCardPSD(s,btn){
+  btn.disabled=true; const t=btn.textContent; btn.textContent="Building…";
+  try{ const bytes=await cardPSD(s); await DL.save({filename:cardKey(s)+"_"+fileSafe(superText(s)||"card")+".psd",data:new Blob([bytes],{type:"image/vnd.adobe.photoshop"})}); }
+  catch(e){ if(!(e&&e.code==="declined")) alert("Couldn't build the PSD: "+((e&&e.message)||e)); }
+  btn.disabled=false; btn.textContent=t;
+}
+async function downloadAllCardPSDs(btn,msg){
+  if(!window.JSZip){ msg.textContent="The zip library didn't load."; msg.className="err"; return; }
+  btn.disabled=true; msg.textContent="Building PSDs…"; msg.className="note";
+  try{ const z=new JSZip(); const items=superItems();
+    for(const it of items){ z.file(it.key+"_"+fileSafe(superText(it.s)||"card")+".psd",await cardPSD(it.s)); }
+    if(sty().customFont) z.file("fonts/"+(sty().customFont.file||sty().customFont.name+".otf"),sty().customFont.data.split(",")[1],{base64:true});
+    z.file("HOW_TO.txt","1. Open a card PSD in Photoshop and edit it — the text layers are live.\n2. Hide the 'Reference still' layer.\n3. File > Export > Quick Export as PNG (keep the file name, e.g. RDA-01_….png).\n4. Back in the tool: Supers > Upload edited cards — select all the PNGs at once. Each one goes onto its card automatically.\n");
+    await DL.save({filename:(S.project.game||"supers").replace(/\W+/g,"_")+"_cards_for_photoshop.zip",data:await z.generateAsync({type:"blob"})});
+    msg.textContent="Saved "+items.length+" PSD(s)."; msg.className="okc";
+  }catch(e){ msg.textContent=e&&e.code==="declined"?"Cancelled.":"Couldn't build them: "+((e&&e.message)||e); msg.className="err"; }
+  btn.disabled=false;
+}
+/* Edited PNG (or PSD saved with the still hidden) → that card's overlay. */
+async function fileToCardArt(f){
+  let canvas;
+  if(/\.psd$/i.test(f.name)){
+    await loadPsdLib(); const psd=agPsd.readPsd(await f.arrayBuffer(),{skipThumbnail:true});
+    const still=(function find(list){ for(const L of list||[]){ if(L.children){ const r=find(L.children); if(r) return r; } else if(/^Reference still/i.test(L.name||"")) return L; } })(psd.children);
+    if(still&&!still.hidden) throw new Error(f.name+": hide the 'Reference still' layer, save, and upload again (or export a PNG).");
+    if(!psd.canvas) throw new Error(f.name+": save with 'Maximize compatibility' on, or export a PNG.");
+    canvas=psd.canvas;
+  } else { const im=await loadImg(URL.createObjectURL(f)); canvas=document.createElement("canvas"); canvas.width=im.width; canvas.height=im.height; canvas.getContext("2d").drawImage(im,0,0); }
+  const c=document.createElement("canvas"); c.width=1280; c.height=720; c.getContext("2d").drawImage(canvas,0,0,1280,720);
+  return c.toDataURL("image/png");
+}
+function uploadCardArt(s,onDone){
+  const inp=h("input",{type:"file",accept:".png,.psd,image/png",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; inp.remove(); if(!f) return;
+    try{ s.superArt=await fileToCardArt(f); await prepCard(s); save(); onDone&&onDone(); }catch(err){ alert(err.message||err); } }});
+  document.body.append(inp); inp.click();
+}
+function uploadManyCardArt(msg){
+  const inp=h("input",{type:"file",multiple:true,accept:".png,.psd,image/png",class:"hidden",onchange:async e=>{ const files=[...e.target.files]; inp.remove(); if(!files.length) return;
+    const items=superItems(); let done=0; const miss=[];
+    for(const f of files){ const it=items.find(i=>new RegExp("(^|[^A-Za-z])"+i.key.replace("-","[-_ ]?")+"(?![0-9])","i").test(f.name));
+      if(!it){ miss.push(f.name); continue; }
+      try{ it.s.superArt=await fileToCardArt(f); await prepCard(it.s); done++; }catch(err){ miss.push(err.message||f.name); } }
+    save(); render();
+    setTimeout(()=>{ const m=document.querySelector("#cardsMsg"); if(m){ m.textContent="Updated "+done+" card(s)."+(miss.length?" Not matched: "+miss.join("; "):""); m.className=miss.length?"err":"okc"; } },50);
+  }});
+  document.body.append(inp); inp.click();
+}
+
 const isPsd=st=>st&&st.mode==="psd"&&st.psd;
 function superSVG(text,st,W=1920,H=1080,opts={}){ return isPsd(st)?psdSVG(text,st,W,H,opts):designSVG(text,st,W,H,opts); }
 function drawSuper(ctx,text,st,W,H){ return isPsd(st)?psdDraw(ctx,text,st,W,H):designDraw(ctx,text,st,W,H); }
 function aeScript(items,st){ return isPsd(st)?psdAE(items,st):designAE(items,st); }
-async function overlayDataURL(s,W=960,H=540){ const st=sty(); await ensureFont(st); const c=document.createElement("canvas"); c.width=W; c.height=H; drawSuper(c.getContext("2d"),superText(s),st,W,H); return c.toDataURL("image/png"); }
+async function overlayDataURL(s,W=960,H=540){ const st=sty(); await ensureFont(st); await prepCard(s); const c=document.createElement("canvas"); c.width=W; c.height=H; drawCard(c.getContext("2d"),s,W,H); return c.toDataURL("image/png"); }
 
 /* ===================== SHARE: developer brief page (v2 — short, previewable) ===================== */
 function shr(){ if(!S.share) S.share={uploadLink:"",deadline:"",contact:"",message:"",summary:"",captureList:[],briefId:"",briefUrl:"",publishedAt:"",responses:null}; return S.share; }
@@ -1934,7 +2062,7 @@ async function buildBriefPayload(withAudio){
   for(const c of cuts()){
     const list=shotsOf(c), shots=[]; let prev=null, n=0;
     for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
-      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",superPng:hasSuper(s)&&isPsd(st)?await overlayDataURL(s):null,sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
+      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",superPng:(hasSuper(s)&&isPsd(st))||s.superArt?await overlayDataURL(s):null,sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
     out.cuts.push({label:cutLabel(c),name:c==="Other"?(p.videoTypeOther||"Other"):c,duration:p.durations[c]||"",shots});
   }
   return out;
