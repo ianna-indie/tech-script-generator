@@ -88,6 +88,24 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:60
 .hp{position:absolute;left:-9999px}
 .preview{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-fg);text-align:center;font-size:14px;font-weight:600;padding:8px;margin:-44px -20px 0}
 .loading{padding:100px 0;text-align:center;color:var(--muted)}
+
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+.jump a{font-size:14px;font-weight:600;color:var(--accent);text-decoration:none;background:var(--fill);padding:6px 12px;border-radius:999px}
+.shot .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bignum{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.badge{font-size:12px;font-weight:600;color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);padding:3px 9px;border-radius:999px;margin-left:auto}
+.badge.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.desc{font-size:18px;line-height:1.4;font-weight:500}
+.kvs{display:flex;flex-direction:column;gap:8px;border-top:.5px solid var(--sep);padding-top:10px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;font-size:15px}
+.kv .k{color:var(--muted);font-size:13px;font-weight:600}
+.still .need{flex-direction:column;gap:4px}
+.still .need b{color:#fff;font-size:15px}
+.shot.needs .still{outline:2px dashed color-mix(in srgb,var(--warn) 60%,transparent);outline-offset:-2px}
+ul.check{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+ul.check li{display:flex;gap:10px;align-items:flex-start;color:var(--fg)}
+ul.check input{width:18px;height:18px;margin-top:2px;accent-color:var(--accent)}
+section{scroll-margin-top:16px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -136,18 +154,24 @@ async function load(){
   try{ await document.fonts.load(fw(ST)+" 40px \""+ST.font+"\""); }catch(e){}
   render();
 }
-function shotCard(s){
+const FRAMING={"Full screen":"Wide — the whole screen","Mid-shot":"Medium — character and surroundings","Close-up":"Close — tight on the detail"};
+const SOUNDLBL={Music:"Music",SFX:"Sound effect",VO:"Voice-over"};
+function shotCard(s,num){
   const box=h("div",{class:"still"});
-  if(s.still) box.append(h("img",{src:s.still,alt:"",loading:"lazy"})); else box.append(h("div",{class:"need"},"New capture needed"));
+  if(s.still) box.append(h("img",{src:s.still,alt:"Reference frame for shot "+num,loading:"lazy"}));
+  else box.append(h("div",{class:"need"},h("b",null,"No reference yet"),h("span",null,"Please capture this from the description")));
   if(s.superPng) box.append(h("img",{src:s.superPng,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
   else if(s.superText){ const d=h("div"); d.innerHTML=svg(s.superText,ST); box.append(d.firstChild); }
-  const ta=h("textarea",{placeholder:"Different moment, or where to find it",hidden:true}); ta.addEventListener("input",()=>{ shotNotes[s.key]=ta.value; });
+  const ta=h("textarea",{placeholder:"A different moment, or where to find it in the game",hidden:true}); ta.addEventListener("input",()=>{ shotNotes[s.key]=ta.value; });
   const toggle=h("button",{class:"linkbtn",type:"button",onclick:()=>{ ta.hidden=!ta.hidden; if(!ta.hidden) ta.focus(); }},"Suggest a change");
-  return h("article",{class:"shot"},box,h("div",{class:"body"},
-    h("div",{class:"num"},"SCENE "+s.scene+" · SHOT "+s.shot),
+  const row=(label,val)=>val?h("div",{class:"kv"},h("span",{class:"k"},label),h("div",{class:"v"},val)):null;
+  return h("article",{class:"shot"+(s.needsCapture?" needs":"")},box,h("div",{class:"body"},
+    h("div",{class:"head"},h("span",{class:"bignum"},String(num).padStart(2,"0")),h("span",{class:"num"},"Scene "+s.scene),s.needsCapture?h("span",{class:"badge"},"Needs new footage"):h("span",{class:"badge ok"},"Reference shown")),
     h("p",{class:"desc"},s.desc),
-    s.superChip?h("img",{src:s.superChip,alt:"On-screen text: "+(s.superText||""),class:"chip-img"}):(s.superText?h("span",{class:"cardtext",style:`background:${ST.plateColor};color:${ST.text};font-family:"${ST.font}",sans-serif;box-shadow:inset 0 -3px 0 ${ST.accent}`},s.superText):null),
-    h("div",{class:"tags"},[s.shotType,s.sound?(s.sound+(s.soundDesc?" · "+s.soundDesc:"")):null].filter(Boolean).map(t=>h("span",null,t)),s.needsCapture?h("span",{class:"need"},"Needs capture"):null),
+    h("div",{class:"kvs"},
+      row("Framing",FRAMING[s.shotType]||s.shotType),
+      row("On-screen text",s.superChip?h("img",{src:s.superChip,alt:s.superText||"On-screen text",class:"chip-img"}):(s.superText?h("span",{class:"cardtext",style:`background:${ST.plateColor};color:${ST.text};font-family:"${ST.font}",sans-serif;box-shadow:inset 0 -3px 0 ${ST.accent}`},s.superText):null)),
+      row("Sound",s.sound?(SOUNDLBL[s.sound]||s.sound)+(s.soundDesc?" — "+s.soundDesc:""):null)),
     toggle,ta));
 }
 let playing=null;
@@ -167,29 +191,34 @@ function render(){
   const app=$("#app"); app.replaceChildren();
   if(PREVIEW) app.append(h("div",{class:"preview"},"Preview — this is what the developers will see"));
   const cuts=B.cuts||[];
-  app.append(h("header",null,h("div",{class:"brand"},h("i"),"indie.io · capture brief"),h("h1",null,B.game),
-    B.message?h("p",{class:"sub"},B.message):h("p",{class:"sub"},"Here's the gameplay we need for the trailer"+(cuts.length>1?"s":"")+"."),
-    h("div",{class:"pills"},cuts.map(c=>h("span",null,c.label+(c.duration?" · "+c.duration:""))),B.deadline?h("span",null,"Due "+B.deadline):null)));
-  app.append(h("section",{class:"card upload"},h("div",{class:"ic"},"↑"),h("div",{style:"flex:1;min-width:200px"},h("b",{style:"font-size:19px"},"Upload your footage"),h("p",{class:"muted small"},B.deadline?"By "+B.deadline:"Drop clips into the shared folder")),
-    B.uploadLink?h("a",{class:"btn fill",href:B.uploadLink,target:"_blank",rel:"noopener"},"Open folder"):h("span",{class:"muted small"},"Link coming soon")));
-  app.append(h("section",null,h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"How to record"),h("span",{class:"spacer"}),h("a",{class:"btn sm",href:OBS_GUIDE,target:"_blank",rel:"noopener"},"Full OBS settings ↗")),
-    h("div",{class:"tips"},TIPS.map(([a,b])=>h("div",null,h("b",null,a),h("span",null,b))))));
-  if((B.captureList||[]).length) app.append(h("section",null,h("h2",null,"What to record"),B.summary?h("p",{class:"muted",style:"margin:-6px 0 14px"},B.summary):null,
-    h("div",{class:"card",style:"padding:6px 22px"},B.captureList.map((g,i)=>h("div",{style:"padding:14px 0;"+(i?"border-top:.5px solid var(--sep)":"")},h("b",null,g.group),h("ul",{style:"margin:6px 0 0;padding-left:20px;color:var(--muted)"},(g.items||[]).map(x=>h("li",null,x))))))));
-  // Shots, one tab per trailer
-  let active=0; const shotsSec=h("section"), seg=h("div",{class:"seg",role:"tablist"}), listBox=h("div",{class:"list"});
-  const showCut=i=>{ active=i; [...seg.children].forEach((b,j)=>b.setAttribute("aria-selected",j===i?"true":"false")); listBox.replaceChildren(...(cuts[i]?cuts[i].shots.map(shotCard):[])); };
-  cuts.forEach((c,i)=>seg.append(h("button",{role:"tab",type:"button",onclick:()=>showCut(i)},c.label)));
-  shotsSec.append(h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"Shots"),h("span",{class:"spacer"}),cuts.length>1?seg:null),
-    h("div",{class:"note"},"✎ On-screen text designs are placeholders — not final."),listBox);
+  const total=cuts.reduce((n,c)=>n+c.shots.length,0), need=cuts.reduce((n,c)=>n+c.shots.filter(x=>x.needsCapture).length,0);
+  app.append(h("header",null,h("div",{class:"brand"},h("i"),"indie.io · trailer tech script"),h("h1",null,B.game),
+    B.message?h("p",{class:"sub"},B.message):h("p",{class:"sub"},"Every shot we need for the trailer"+(cuts.length>1?"s":"")+", in order. Each card shows what to record and how it will look."),
+    h("div",{class:"pills"},cuts.map(c=>h("span",null,c.label+(c.duration?" · "+c.duration:""))),h("span",null,total+" shots"+(need?" · "+need+" need new footage":"")),B.deadline?h("span",null,"Due "+B.deadline):null),
+    h("nav",{class:"jump"},h("a",{href:"#script"},"Tech script"),h("a",{href:"#record"},"How to record"),h("a",{href:"#upload"},"Upload"),(B.captureList||[]).length?h("a",{href:"#checklist"},"What to record"):null,h("a",{href:"#music"},"Music"),h("a",{href:"#send"},"Send notes"))));
+  // 1) Tech script
+  const shotsSec=h("section",{id:"script"}), seg=h("div",{class:"seg",role:"tablist"}), listBox=h("div",{class:"list"});
+  const showCut=i=>{ [...seg.children].forEach((b,j)=>b.setAttribute("aria-selected",j===i?"true":"false")); const c=cuts[i]; listBox.replaceChildren(...(c?c.shots.map((x,k)=>shotCard(x,k+1)):[])); };
+  cuts.forEach((c,i)=>seg.append(h("button",{role:"tab",type:"button",onclick:()=>showCut(i)},c.label+(c.duration?" · "+c.duration:""))));
+  shotsSec.append(h("div",{class:"row",style:"margin-bottom:12px"},h("h2",{style:"margin:0"},"Tech script"),h("span",{class:"spacer"}),cuts.length>1?seg:null),
+    h("p",{class:"muted small",style:"margin:-4px 0 14px"},"The picture is a reference frame. Text on it is a draft, not final."),listBox);
   app.append(shotsSec); showCut(0);
-  // Music
+  // 2) How to record
+  app.append(h("section",{id:"record"},h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"How to record"),h("span",{class:"spacer"}),h("a",{class:"btn sm",href:OBS_GUIDE,target:"_blank",rel:"noopener"},"Full OBS settings ↗")),
+    h("div",{class:"tips"},TIPS.map(([a,b])=>h("div",null,h("b",null,a),h("span",null,b))))));
+  // 3) Upload
+  app.append(h("section",{id:"upload",class:"card upload"},h("div",{class:"ic"},"↑"),h("div",{style:"flex:1;min-width:200px"},h("b",{style:"font-size:19px"},"Upload your footage"),h("p",{class:"muted small"},(B.deadline?"By "+B.deadline+" · ":"")+"Name each clip by its shot, e.g. RDA-01")),
+    B.uploadLink?h("a",{class:"btn fill",href:B.uploadLink,target:"_blank",rel:"noopener"},"Open folder"):h("span",{class:"muted small"},"Link coming soon")));
+  // 4) What to record (checklist)
+  if((B.captureList||[]).length) app.append(h("section",{id:"checklist"},h("h2",null,"What to record"),B.summary?h("p",{class:"muted",style:"margin:-6px 0 14px"},B.summary):null,
+    h("div",{class:"card",style:"padding:6px 22px"},B.captureList.map((g,i)=>h("div",{style:"padding:14px 0;"+(i?"border-top:.5px solid var(--sep)":"")},h("b",null,g.group),h("ul",{class:"check"},(g.items||[]).map(x=>h("li",null,h("input",{type:"checkbox","aria-label":x}),h("span",null,x)))))))));
+  // 5) Music
   const tracks=(B.music&&B.music.tracks)||[];
   const licBox=h("div",{class:"grid",hidden:true},h("input",{type:"text",id:"licT",placeholder:"Track name"}),h("input",{type:"url",id:"licL",placeholder:"Link"}),h("input",{type:"text",id:"licR",placeholder:"License (e.g. we own it)"}));
-  app.append(h("section",null,h("h2",null,"Music"),
+  app.append(h("section",{id:"music"},h("h2",null,"Music"),h("p",{class:"muted small",style:"margin:-6px 0 14px"},"Play a track and tap Choose for the one you like."),
     tracks.length?h("div",{class:"tracks"},tracks.map(trackRow)):h("p",{class:"muted"},"No tracks yet."),
     h("div",{class:"row",style:"margin-top:14px"},h("button",{class:"linkbtn",type:"button",onclick:()=>{ licBox.hidden=!licBox.hidden; }},"＋ Suggest licensed music")),licBox));
-  // Send
+  // 6) Send
   const name=h("input",{type:"text",placeholder:"Your name",autocomplete:"name"}), studio=h("input",{type:"text",placeholder:"Studio",autocomplete:"organization"});
   const notes=h("textarea",{placeholder:"Notes (optional)"}), hp=h("input",{type:"text",class:"hp",tabindex:"-1",autocomplete:"off","aria-hidden":"true"});
   const up=h("input",{type:"checkbox"}), msg=h("p",{"aria-live":"polite",class:"small"});
@@ -201,7 +230,7 @@ function render(){
       msg.className="ok"; msg.textContent="Sent. Thank you!";
     }catch(e){ msg.className="err"; msg.textContent="Couldn't send — "+e.message; }
     send.disabled=false; }},PREVIEW?"Sending is off in preview":"Send");
-  app.append(h("section",{class:"card"},h("h2",null,"Send to indie.io"),
+  app.append(h("section",{id:"send",class:"card"},h("h2",null,"Send to indie.io"),h("p",{class:"muted small",style:"margin:-6px 0 14px"},"Your shot suggestions and music choice are included."),
     h("div",{class:"grid"},name,studio),h("div",{style:"margin-top:12px"},notes),hp,
     h("label",{class:"switch",style:"margin-top:12px"},h("span",null,"Footage uploaded"),up),
     h("div",{class:"row",style:"margin-top:16px"},send,msg)));
