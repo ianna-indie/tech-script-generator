@@ -2090,6 +2090,18 @@ async function makeAudioPreview(t){
   t.preview=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
   save(); return t.preview;
 }
+
+/* Tight crop of a card's rendered graphic — the small preview next to each shot on the developer page. */
+async function cardChip(s){
+  const st=sty(); await ensureFont(st); await prepCard(s);
+  const W=1920,H=1080,c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d"); drawCard(x,s,W,H);
+  const d=x.getImageData(0,0,W,H).data; let x0=W,y0=H,x1=-1,y1=-1;
+  for(let y=0;y<H;y+=2) for(let xx=0;xx<W;xx+=2){ if(d[(y*W+xx)*4+3]>10){ if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  if(x1<0) return null;
+  const pad=12; x0=Math.max(0,x0-pad); y0=Math.max(0,y0-pad); x1=Math.min(W-1,x1+pad); y1=Math.min(H-1,y1+pad);
+  const cw=x1-x0+1, ch=y1-y0+1, k=Math.min(1,560/cw,160/ch), o=document.createElement("canvas"); o.width=Math.round(cw*k); o.height=Math.round(ch*k);
+  o.getContext("2d").drawImage(c,x0,y0,cw,ch,0,0,o.width,o.height); return o.toDataURL("image/png");
+}
 async function buildBriefPayload(withAudio){
   const p=S.project, sh=shr(), st=sty();
   const tracks=(S.tracks||[]).filter(t=>(t.url||t.name)&&!/⚠/.test(t.notes||"")&&t.source!=="Developer suggestion");
@@ -2099,7 +2111,7 @@ async function buildBriefPayload(withAudio){
   for(const c of cuts()){
     const list=shotsOf(c), shots=[]; let prev=null, n=0;
     for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
-      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",superPng:(hasSuper(s)&&isPsd(st))||s.superArt?await overlayDataURL(s):null,sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
+      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",superPng:hasCard(s)?await overlayDataURL(s):null,superChip:hasCard(s)?await cardChip(s):null,sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
     out.cuts.push({label:cutLabel(c),name:c==="Other"?(p.videoTypeOther||"Other"):c,duration:p.durations[c]||"",shots});
   }
   return out;
