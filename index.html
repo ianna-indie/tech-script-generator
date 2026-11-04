@@ -2388,8 +2388,8 @@ async function loadProject(id,version){
 
 
 /* Ready-to-paste Discord messages (Export step): one for the marketing team, one for the developers. */
-const LONGNAME={"Release date announcement":"RDA (release date announcement)","Launch trailer":"launch","Steam teaser":"teaser","Console trailer":"console","Social video":"social","Event trailer":"event","Trailer":"gameplay"};
-function trailerPhrase(){ const names=cuts().map(c=>c==="Other"?(S.project.videoTypeOther||"trailer"):(LONGNAME[c]||cutLabel(c)));
+const LONGNAME={"Release date announcement":"RDA (release date announcement)","Launch trailer":"launch","Steam teaser":"teaser","Console trailer":"console","Social video":"social","Event trailer":"event","Trailer":""};
+function trailerPhrase(){ const names=cuts().map(c=>c==="Other"?(S.project.videoTypeOther||"trailer"):(c in LONGNAME?LONGNAME[c]:cutLabel(c))).filter(Boolean); if(!names.length) return "trailer";
   const list=names.length>1?names.slice(0,-1).join(", ")+" and "+names[names.length-1]:names[0]; return list+" trailer"+(names.length>1?"s":""); }
 function shareMessageText(kind){
   const p=S.project, sh=shr(), ei=S.exportInfo||{}, game=p.game||"the game";
@@ -2400,12 +2400,26 @@ function shareMessageText(kind){
     L.push("","Thank you! :blobcat-coffee:");
     return L.join("\n");
   }
-  const L=["Hi team! :blush: The **"+game+"** tech script for the "+trailerPhrase()+" is now ready for your review and approval.",""];
-  L.push("- **Tech script (Google Sheet):** "+(ei.lastUrl||"[create the Google Sheet first]"));
-  L.push("- **Developer page:** "+(sh.briefUrl||"[publish the developer page first]"),"");
-  L.push("Let me know if you have any feedback, or if it's good to go! Thank you! :blobcat-coffee:");
+  const who=sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino";
+  const sheetName=(ei.sheetName||defaultName());
+  const L=["Hi @"+who+", the tech script for the "+trailerPhrase()+" is now ready for your review and approval.","Tech script (Google Sheet):",""];
+  L.push("* "+(ei.lastUrl?"["+sheetName+"]("+ei.lastUrl+")":"[create the Google Sheet first]"),"","Developer page:","");
+  L.push("* "+(sh.briefUrl||"[publish the developer page first]"),"");
+  L.push("Let me know if you have any feedback, or if it's good to go! Thank you!");
   return L.join("\n");
 }
+function msgToHtml(text){
+  const e=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const inline=t=>e(t).replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>").replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2">$1</a>').replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2">$2</a>');
+  const out=[]; let list=null;
+  for(const line of String(text).split("\n")){ const m=line.match(/^\s*[*\-•]\s+(.*)$/);
+    if(m){ if(!list){ list=[]; } list.push("<li>"+inline(m[1])+"</li>"); continue; }
+    if(list){ out.push("<ul>"+list.join("")+"</ul>"); list=null; }
+    if(line.trim()) out.push("<p>"+inline(line)+"</p>"); }
+  if(list) out.push("<ul>"+list.join("")+"</ul>");
+  return out.join("");
+}
+const msgToPlain=text=>String(text).replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,"$1: $2");
 function shareMessagePanel(){
   const sh=shr(), ei=S.exportInfo||{}; if(!sh.msg) sh.msg={};
   const kind=sh.msgKind||"marketing";
@@ -2417,12 +2431,17 @@ function shareMessagePanel(){
   const missing=need.filter(Boolean);
   const tab=(k,label)=>h("button",{role:"tab","aria-selected":kind===k?"true":"false",class:"btn small",style:kind===k?"background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.12)":"background:transparent",onclick:()=>{ sh.msgKind=k; save(); render(); }},label);
   return h("div",{class:"panel",style:"margin-top:16px"},
-    h("div",{class:"row"},h("b",null,"Discord message"),
-      h("div",{role:"tablist",style:"display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px"},tab("marketing","Marketing team"),tab("dev","Developers")),
+    h("div",{class:"row"},h("b",null,"Share message"),
+      h("div",{role:"tablist",style:"display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px"},tab("marketing","Marketing (Wrike)"),tab("dev","Developers (Discord)")),
       h("span",{class:"spacer"}),
       h("button",{class:"btn small",onclick:()=>{ delete sh.msg[kind]; save(); ta.value=shareMessageText(kind); msg.textContent="Refreshed with the latest links."; msg.className="note"; }},"Refresh"),
-      h("button",{class:"btn primary small",onclick:async()=>{ try{ await navigator.clipboard.writeText(ta.value); }catch(e){ ta.select(); document.execCommand&&document.execCommand("copy"); } msg.textContent="Copied — paste it in Discord."; msg.className="okc"; }},"Copy")),
-    h("p",{class:"note",style:"margin-top:6px"},kind==="dev"?"For the developers — just the developer page link.":"For marketing — the Google Sheet and the developer page, ready for review and approval."),
+      h("button",{class:"btn primary small",onclick:async()=>{
+        try{
+          if(kind==="marketing"&&window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([msgToHtml(ta.value)],{type:"text/html"}),"text/plain":new Blob([msgToPlain(ta.value)],{type:"text/plain"})})]); }
+          else await navigator.clipboard.writeText(ta.value);
+        }catch(e){ ta.select(); document.execCommand&&document.execCommand("copy"); }
+        msg.textContent=kind==="marketing"?"Copied — paste it in the Wrike comment (links and bullets come with it). Type @ to tag "+(sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino").split(" ")[0]+" so Wrike notifies her.":"Copied — paste it in Discord."; msg.className="okc"; }},"Copy")),
+    kind==="marketing"?h("div",{class:"row",style:"margin-top:8px;gap:8px"},h("span",{class:"note"},"Reviewer"),(()=>{ const i=h("input",{type:"text",value:sh.reviewer||localStorage.getItem("tsg_reviewer")||"Alyssa DiCaterino",style:"max-width:240px"}); i.addEventListener("change",()=>{ sh.reviewer=i.value.trim(); try{ localStorage.setItem("tsg_reviewer",sh.reviewer); }catch(e){} delete sh.msg.marketing; save(); render(); }); return i; })()):h("p",{class:"note",style:"margin-top:6px"},"For the developers — just the developer page link."),
     missing.length?h("p",{class:"note",style:"color:var(--warn)"},"To include the links: "+missing.join(" and ")+", then Refresh."):null,
     h("div",{style:"margin-top:8px"},ta),msg);
 }
