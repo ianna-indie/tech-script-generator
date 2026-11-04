@@ -18,6 +18,7 @@ AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 | `brief.html` | The developer page (`/b/<id>`): tabs per trailer, recording tips, music with preview + choose. |
 | `vendor/` | ExcelJS, JSZip and the MP3 encoder (music previews), bundled so nothing depends on a CDN. |
 | `api/brief.js`, `api/brief-response.js`, `api/brief-responses.js` | Publish briefs, receive and read developer replies. |
+| `api/projects.js` | Saved projects per indie.io account (Save, Projects, autosave). |
 | `api/_store.js`, `api/_auth.js` | Blob storage + indie.io sign-in check. |
 | `vercel.json` | Timeout, `/b/<id>` route, service-worker headers. |
 
@@ -48,6 +49,12 @@ Brief pages and developer replies are stored in **Vercel Blob**:
 
 Brief links look like `https://tech-script-generator.vercel.app/b/<id>`. Anyone with the link can view the page and send
 a reply (no sign-in), so share it only with the dev team. Publishing again keeps the same link.
+
+## Saving progress
+
+**Save** (sidebar, or ⌘S / Ctrl+S) stores the whole project — brief, footage links, shots, stills, supers, music, share settings —
+to your indie.io account. It also autosaves 30 s after you stop editing. **Projects** lists everything you've saved: open, or delete.
+Each account only sees its own projects. The last 5 versions of each are kept. Uses the same Vercel Blob store as brief pages.
 
 ## Check it
 

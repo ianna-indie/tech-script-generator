@@ -50,4 +50,6 @@ async function latestBrief(id) {
   return readJSON(items[0].url || items[0].pathname);
 }
 
-module.exports = { ready, putJSON, readJSON, listAll, latestBrief, validId };
+async function remove(paths) { if (paths.length) await blob.del(paths); }
+
+module.exports = { ready, putJSON, readJSON, listAll, latestBrief, validId, remove };

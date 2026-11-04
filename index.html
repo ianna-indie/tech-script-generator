@@ -230,6 +230,7 @@ details.more>summary::-webkit-details-marker{display:none}
   <nav class="rail" aria-label="Steps">
     <div class="brand">Tech Script<br>Generator<small>indie.io creative</small></div>
     <ol class="steps" id="steps"></ol>
+    <div id="saveBox"></div>
     <button class="btn small" id="newScriptBtn" style="background:#1B1840;border-color:#373278;color:#fff;align-self:flex-start">＋ New tech script</button>
     <div class="foot"><div id="authBox"></div><div id="savedNote" style="margin-top:8px">Drafts save in this browser.</div></div>
   </nav>
@@ -288,7 +289,7 @@ const FILES = new Map(); // sourceId -> File (memory only)
 const DB_NAME="tsg", STORE="s";
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>r.result.createObjectStore(STORE); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 let saveT;
-function save(){ clearTimeout(saveT); saveT=setTimeout(async()=>{ try{ const d=await idb(); d.transaction(STORE,"readwrite").objectStore(STORE).put(JSON.stringify(S),"cur"); $("#savedNote").textContent="Draft saved "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+"."; }catch(e){ $("#savedNote").textContent="Draft not saved in this browser."; } },500); }
+function save(silent){ if(!silent) try{ cloudDirty(); }catch(e){} clearTimeout(saveT); saveT=setTimeout(async()=>{ try{ const d=await idb(); d.transaction(STORE,"readwrite").objectStore(STORE).put(JSON.stringify(S),"cur"); $("#savedNote").textContent="Draft saved "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+"."; }catch(e){ $("#savedNote").textContent="Draft not saved in this browser."; } },500); }
 async function load(){ try{ const d=await idb(); const v=await new Promise(r=>{ const q=d.transaction(STORE).objectStore(STORE).get("cur"); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null); }); if(v){ const o=JSON.parse(v); S=Object.assign(S,o); S.project=Object.assign({}, S.project, o.project); } if(!Array.isArray(S.project.videoTypes)) S.project.videoTypes=[S.project.videoType||"Trailer"]; if(!S.project.durations) S.project.durations={}; if(S.project.duration&&!S.project.durations[S.project.videoTypes[0]]) S.project.durations[S.project.videoTypes[0]]=S.project.duration; S.shots.forEach(x=>{ if(!x.cut) x.cut=S.project.videoTypes[0]; }); if(!Array.isArray(S.tracks)) S.tracks=[]; S.shots.forEach(x=>{ if(OLD_SUPER[x.superType]) x.superType=OLD_SUPER[x.superType]; if(!SUPER_TYPES.includes(x.superType)) x.superType="None"; if(x.sfx&&!x.soundDesc){ x.soundDesc=x.sfx; x.sound="SFX"; } if(!x.sound) x.sound="None"; if(!x.shotType) x.shotType="Full screen"; }); }catch(e){} }
 
 /* ---------- capabilities ---------- */
@@ -312,7 +313,7 @@ function signIn(interactive){
       GTOKEN=r.access_token; GEXP=Date.now()+((Number(r.expires_in)||3500)-60)*1000;
       try{ const u=await fetch("https://www.googleapis.com/oauth2/v3/userinfo",{headers:{Authorization:"Bearer "+GTOKEN}}).then(x=>x.json()); GEMAIL=u.email||""; }catch(e){}
       sessionStorage.setItem("tsg_hint",GEMAIL||"");
-      await sendTokenToSW(); MCP=driveMCP; renderAuth(); render(); w.forEach(x=>x.res(GTOKEN));
+      await sendTokenToSW(); MCP=driveMCP; renderAuth(); render(); renderSaveBox(); w.forEach(x=>x.res(GTOKEN));
     }});
     tokenWaiters.push({res,rej});
     tokenClient.requestAccessToken({prompt:interactive?"":"none",login_hint:sessionStorage.getItem("tsg_hint")||undefined});
@@ -422,12 +423,12 @@ async function lightUp(){
   if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("/sw.js");
     navigator.serviceWorker.addEventListener("message",async e=>{ if(e.data&&e.data.type==="need-token"&&e.ports&&e.ports[0]){ let t=null; try{ if(e.data.expired) GEXP=0; t=GTOKEN?await token():null; }catch(err){} e.ports[0].postMessage({token:t}); } });
   }catch(e){} }
-  window.TSG_SERVER=true; SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
+  window.TSG_SERVER=true; renderSaveBox(); SAMPLE=makeSample(); IMG_LIMITS={maxCount:CFG.maxImages||10};
   DL={save:async({filename,data})=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(data); a.download=filename; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); }};
   renderAuth();
   const wait=()=>new Promise(r=>{ const t0=Date.now(); (function poll(){ if(window.google&&google.accounts&&google.accounts.oauth2) r(true); else if(Date.now()-t0>8000) r(false); else setTimeout(poll,100); })(); });
   if(CFG.googleClientId&&sessionStorage.getItem("tsg_hint")!==null&&await wait()) signIn(false).catch(()=>{});
-  render();
+  render(); renderSaveBox();
 }
 
 /* ---------- rail ---------- */
@@ -1360,7 +1361,7 @@ function openProjectFile(){
       if(d.kind!=="tech-script-generator-project") throw new Error("That isn't a Tech Script Generator project file.");
       if(S.shots.length&&!confirm("Replace the current draft with "+f.name+"?")) return;
       Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[],style:d.style||null,share:d.share||null,musicLib:d.musicLib||null});
-      FILES.clear(); save(); go(S.shots.length?3:0);
+      FILES.clear(); S.cloud={id:"",name:"",savedAt:"",dirty:true}; save(); go(S.shots.length?3:0);
     }catch(err){ alert("Couldn't open that file: "+err.message); }
   }});
   document.body.append(inp); inp.click();
@@ -1371,7 +1372,7 @@ function newScript(){
   if(!confirm("Start a new tech script?\n\nThis clears the current brief, shots, frames and music. Save a project file first if you want to keep it.")) return;
   const keep=S.exportInfo||{};
   S.project={game:"",videoTypes:["Release date announcement","Launch trailer"],videoTypeOther:"",durations:{},platform:"",aspect:"16:9",brief:"",messaging:"",mandatory:"",supersCap:5};
-  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null; S.style=null; S.share=null; S.musicLib=S.musicLib?{folderId:S.musicLib.folderId,folderName:S.musicLib.folderName,files:[],analysis:{},msg:""}:null;
+  S.activeCut=null; S.sources=[]; S.frames=[]; S.shots=[]; S.music=[]; S.tracks=[]; S.missing=[]; S.analysis=null; S.style=null; S.share=null; S.cloud={id:"",name:"",savedAt:"",dirty:false}; S.musicLib=S.musicLib?{folderId:S.musicLib.folderId,folderName:S.musicLib.folderName,files:[],analysis:{},msg:""}:null;
   S.exportInfo={sheetName:"",folderId:keep.folderId||"",folderName:keep.folderName||"My Drive",lastUrl:""};
   FILES.clear(); logLines=[]; try{ trackMsg=""; }catch(e){}
   if($("#dlg").open) $("#dlg").close();
@@ -1840,6 +1841,84 @@ function musicLibraryPanel(){
     })):null);
 }
 
+
+/* ===================== SAVE: projects saved to your indie.io account ===================== */
+let cloudTimer=null, cloudBusy=false;
+function cloudDirty(){ if(!S.cloud) S.cloud={id:"",name:"",savedAt:"",dirty:false}; S.cloud.dirty=true; renderSaveBox(); if(window.TSG_SERVER&&GTOKEN&&(S.cloud.id||S.project.game)){ clearTimeout(cloudTimer); cloudTimer=setTimeout(()=>cloudSave(false),30000); } }
+function projectName(){ return (S.project.game||"Untitled")+" · "+cuts().map(cutLabel).join(" + "); }
+function snapshot(){
+  const strip=t=>Object.assign({},t,{preview:undefined});
+  const data={kind:"tech-script-generator-project",version:2,project:S.project,style:S.style||null,share:S.share?Object.assign({},S.share,{responses:null}):null,
+    musicLib:S.musicLib?{folderId:S.musicLib.folderId,folderName:S.musicLib.folderName,files:[],analysis:{},msg:""}:null,
+    shots:S.shots,music:S.music,tracks:(S.tracks||[]).map(strip),missing:S.missing,analysis:S.analysis,sources:S.sources,frames:S.frames,step:S.step,activeCut:S.activeCut};
+  let json=JSON.stringify(data);
+  if(json.length>3.6e6){ // keep only frames the shots actually use
+    const used=new Set(); S.shots.forEach(s=>{ if(s.selected) used.add(s.selected); (s.options||[]).forEach(o=>used.add(o.frame)); });
+    data.frames=S.frames.filter(f=>used.has(f.id)); json=JSON.stringify(data);
+  }
+  if(json.length>4.2e6) throw new Error("This project is too big to save online ("+(json.length/1e6).toFixed(1)+" MB). Use Save project file on the Export step.");
+  return data;
+}
+async function cloudSave(manual){
+  if(!window.TSG_SERVER){ return saveProjectFile(); }
+  if(cloudBusy) return; if(!GTOKEN){ if(manual) alert("Sign in with Google to save."); return; }
+  clearTimeout(cloudTimer); cloudBusy=true; renderSaveBox("Saving…");
+  try{
+    const t=await token(); const name=projectName();
+    const r=await fetch("/api/projects",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({id:S.cloud&&S.cloud.id||undefined,name,data:snapshot()})});
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||("Save failed ("+r.status+")"));
+    S.cloud=Object.assign(S.cloud||{},{id:j.id,name,savedAt:j.savedAt,dirty:false,error:""});
+    cloudBusy=false; save(true); renderSaveBox();
+  }catch(e){ cloudBusy=false; if(S.cloud) S.cloud.error=(e&&e.message)||"Save failed"; renderSaveBox(); if(manual) alert(S.cloud.error); }
+}
+function renderSaveBox(override){
+  const box=document.getElementById("saveBox"); if(!box) return;
+  const c=S.cloud||{};
+  const status=override||(c.error?"Not saved — "+c.error:c.savedAt?(c.dirty?"Unsaved changes":"Saved "+new Date(c.savedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})):"Not saved yet");
+  box.replaceChildren(
+    h("div",{class:"row",style:"gap:6px"},h("button",{class:"btn small",onclick:()=>cloudSave(true)},"Save"),window.TSG_SERVER?h("button",{class:"btn small",onclick:openProjects},"Projects"):null),
+    h("div",{class:"note",style:"margin-top:6px;font-size:12px"+(c.error?";color:var(--warn)":"")},window.TSG_SERVER?status:"Saves a project file"));
+}
+async function openProjects(){
+  const list=h("div",{style:"display:flex;flex-direction:column;gap:8px"},h("p",{class:"note"},"Loading…"));
+  openDialog("Your projects",[h("div",{class:"row",style:"margin-bottom:12px"},h("button",{class:"btn primary small",onclick:()=>{ $("#dlg").close(); newScript(); }},"＋ New tech script"),h("span",{class:"spacer"}),h("span",{class:"note"},"Saved to your indie.io account")),list]);
+  if(!GTOKEN){ list.replaceChildren(h("p",{class:"err"},"Sign in with Google to see your saved projects.")); return; }
+  try{
+    const t=await token(); const r=await fetch("/api/projects",{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    const ps=j.projects||[];
+    list.replaceChildren(...(ps.length?ps.map(p=>{
+      const cur=S.cloud&&S.cloud.id===p.id;
+      return h("div",{class:"row",style:"flex-wrap:nowrap;background:var(--fill);border-radius:12px;padding:10px 12px"},
+        h("div",{style:"flex:1;min-width:0"},h("b",null,p.name+(cur?" (open)":"")),h("div",{class:"note"},"Saved "+new Date(p.savedAt).toLocaleString())),
+        h("button",{class:"btn small",onclick:()=>openHistory(p)},"History"),
+        cur?null:h("button",{class:"btn small primary",onclick:()=>loadProject(p.id)},"Open"),
+        h("button",{class:"btn small ghost",onclick:async e=>{ if(!confirm("Delete \""+p.name+"\"? This can't be undone.")) return; e.currentTarget.disabled=true;
+          const t2=await token(); await fetch("/api/projects?id="+p.id,{method:"DELETE",headers:{Authorization:"Bearer "+t2}}); if(cur){ S.cloud={id:"",name:"",savedAt:"",dirty:true}; save(); } openProjects(); }},"Delete"));
+    }):[h("p",{class:"note"},"No saved projects yet. Click Save in the sidebar.")]));
+  }catch(e){ list.replaceChildren(h("p",{class:"err"},"Couldn't load projects: "+((e&&e.message)||e))); }
+}
+async function openHistory(p){
+  const list=h("div",{style:"display:flex;flex-direction:column;gap:8px"},h("p",{class:"note"},"Loading…"));
+  openDialog("Previous saves",[h("div",{class:"row",style:"margin-bottom:12px"},h("button",{class:"btn small",onclick:openProjects},"‹ Projects"),h("b",null,p.name)),list]);
+  try{
+    const t=await token(); const r=await fetch("/api/projects?id="+p.id+"&versions=1",{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    list.replaceChildren(...(j.versions||[]).map((v,i)=>h("div",{class:"row",style:"flex-wrap:nowrap;background:var(--fill);border-radius:12px;padding:10px 12px"},
+      h("div",{style:"flex:1"},h("b",null,new Date(v.savedAt).toLocaleString()),h("div",{class:"note"},i===0?"Latest":v.name)),
+      h("button",{class:"btn small primary",onclick:()=>loadProject(p.id,v.v)},i===0?"Open":"Restore"))),
+      h("p",{class:"note"},"The last 5 saves are kept. Restoring opens that version — save it to make it the latest."));
+  }catch(e){ list.replaceChildren(h("p",{class:"err"},"Couldn't load saves: "+((e&&e.message)||e))); }
+}
+async function loadProject(id,version){
+  if(S.cloud&&S.cloud.dirty&&S.shots.length&&!confirm("Open another project? Unsaved changes here will be lost.")) return;
+  try{
+    const t=await token(); const r=await fetch("/api/projects?id="+id+(version?"&v="+encodeURIComponent(version):""),{headers:{Authorization:"Bearer "+t}}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status);
+    const d=j.data||{};
+    Object.assign(S,{project:Object.assign({},S.project,d.project),shots:d.shots||[],music:d.music||[],tracks:d.tracks||[],missing:d.missing||[],analysis:d.analysis||null,sources:d.sources||[],frames:d.frames||[],style:d.style||null,share:d.share||null,musicLib:d.musicLib||null,activeCut:d.activeCut||null});
+    S.cloud={id:j.id,name:j.name,savedAt:j.savedAt||new Date().toISOString(),dirty:!!version,error:""};
+    FILES.clear(); if($("#dlg").open) $("#dlg").close(); save(true); go(typeof d.step==="number"?d.step:0);
+  }catch(e){ alert("Couldn't open it: "+((e&&e.message)||e)); }
+}
+
 /* ---------- render ---------- */
 function render(){
   renderRail();
@@ -1847,7 +1926,9 @@ function render(){
   $("#main").replaceChildren(...views[S.step]().flat().filter(Boolean));
   updateCounter();
 }
-(async()=>{ await load(); render(); lightUp(); $("#newScriptBtn").addEventListener("click",newScript); })();
+document.addEventListener("keydown",e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"){ e.preventDefault(); cloudSave(true); } });
+window.addEventListener("beforeunload",e=>{ if(S.cloud&&S.cloud.dirty&&GTOKEN&&S.shots.length){ e.preventDefault(); e.returnValue=""; } });
+(async()=>{ await load(); render(); lightUp(); $("#newScriptBtn").addEventListener("click",newScript); renderSaveBox(); })();
 </script>
 </body>
 </html>
