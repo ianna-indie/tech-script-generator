@@ -47,7 +47,9 @@ Brief pages and developer replies are stored in **Vercel Blob**:
    That adds `BLOB_READ_WRITE_TOKEN` automatically.
 2. Redeploy.
 
-Brief links look like `https://tech-script-generator.vercel.app/b/<id>`. Anyone with the link can view the page and send
+Brief links look like `https://iio-creative.vercel.app/b/outcity-rda-launch-k3m9x2p7` once you add a friendlier domain:
+Vercel → project → **Settings → Domains → Add** → e.g. `iio-creative.vercel.app` (any free `*.vercel.app` name), then set
+`BRIEF_BASE_URL=https://iio-creative.vercel.app` and redeploy. A custom domain like `briefs.indie.io` works the same way (needs a DNS record from IT). Anyone with the link can view the page and send
 a reply (no sign-in), so share it only with the dev team. Publishing again keeps the same link.
 
 ## Saving progress

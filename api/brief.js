@@ -2,7 +2,13 @@
 // POST /api/brief       — indie.io only: publish or update a brief. Body: { id?, brief }.
 const store = require("./_store");
 const verifyGoogle = require("./_auth");
-const newId = () => Array.from({ length: 16 }, () => "abcdefghijkmnpqrstuvwxyz23456789"[Math.floor(Math.random() * 32)]).join("");
+const rand = (n) => Array.from({ length: n }, () => "abcdefghijkmnpqrstuvwxyz23456789"[Math.floor(Math.random() * 32)]).join("");
+// Readable, unguessable ids: "outcity-rda-launch-k3m9x2p7"
+const newId = (brief) => {
+  const slug = [brief.game, ...(brief.cuts || []).map((c) => c.label)].join(" ").toLowerCase()
+    .normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36).replace(/-+$/, "");
+  return (slug ? slug + "-" : "") + rand(8);
+};
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -20,12 +26,13 @@ module.exports = async function handler(req, res) {
       if (!email) return res.status(401).json({ error: "Sign in with your indie.io Google account." });
       const { id: givenId, brief } = req.body || {};
       if (!brief || !brief.game) return res.status(400).json({ error: "Missing brief content." });
-      const id = store.validId(givenId) ? givenId : newId();
+      const id = store.validId(givenId) ? givenId : newId(brief);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       await store.putJSON("briefs/" + id + "/" + stamp + ".json", Object.assign({}, brief, { id, updatedAt: new Date().toISOString(), updatedBy: email }));
-      const host = req.headers["x-forwarded-host"] || req.headers.host;
-      const proto = req.headers["x-forwarded-proto"] || "https";
-      return res.status(200).json({ id, url: proto + "://" + host + "/b/" + id });
+      // BRIEF_BASE_URL lets links use a friendlier domain (e.g. https://iio-creative.vercel.app) than the one the tool runs on.
+      const base = (process.env.BRIEF_BASE_URL || "").replace(/\/+$/, "") ||
+        ((req.headers["x-forwarded-proto"] || "https") + "://" + (req.headers["x-forwarded-host"] || req.headers.host));
+      return res.status(200).json({ id, url: base + "/b/" + id });
     }
     return res.status(405).json({ error: "Use GET or POST." });
   } catch (e) {

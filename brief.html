@@ -100,7 +100,7 @@ const TIPS=[["1080p+","4K preferred · 16:9"],["60 fps","30 if the game can't ho
 const $=s=>document.querySelector(s);
 function h(tag,attrs,...kids){ const el=document.createElement(tag); if(attrs) for(const [k,v] of Object.entries(attrs)){ if(v==null||v===false) continue; if(k==="class") el.className=v; else if(k.startsWith("on")) el.addEventListener(k.slice(2),v); else el.setAttribute(k,v===true?"":v); } for(const k of kids.flat()){ if(k==null||k===false) continue; el.append(k.nodeType?k:document.createTextNode(String(k))); } return el; }
 const PREVIEW=location.hash==="#preview";
-const id=(location.pathname.match(/\/b\/([a-z0-9]{10,32})/)||[])[1]||new URLSearchParams(location.search).get("id");
+const id=(location.pathname.match(/\/b\/([a-z0-9-]{10,58})/)||[])[1]||new URLSearchParams(location.search).get("id");
 const SINGLE=new Set(["Press Start 2P","Silkscreen","Bebas Neue","Anton","Archivo Black","Bungee","Rubik Mono One","Audiowide","Russo One","Righteous","Creepster","Special Elite"]);
 const fw=st=>SINGLE.has(st.font)?400:((st.weight||700)>=600?700:400);
 const MC=document.createElement("canvas").getContext("2d");

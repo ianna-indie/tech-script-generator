@@ -40,7 +40,7 @@ async function listAll(prefix) {
   return out;
 }
 
-const validId = (id) => /^[a-z0-9]{10,32}$/.test(String(id || ""));
+const validId = (id) => /^[a-z0-9][a-z0-9-]{8,56}[a-z0-9]$/.test(String(id || "")) && !String(id).includes("--");
 
 async function latestBrief(id) {
   if (!validId(id)) return null;
