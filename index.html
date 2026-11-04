@@ -1390,11 +1390,12 @@ function sty(){ if(!S.style) S.style=Object.assign({},DEFAULT_STYLE); return S.s
 const fontWeight=st=>SINGLE_WEIGHT.has(st.font)?400:((st.weight||700)>=600?700:400); // every listed family ships 400 and 700
 const loadedFonts=new Set();
 async function ensureFont(st){
+  if(st.mode==="psd"&&st.psd) return ensurePsdAssets(st);
   const fam=st.font; if(!loadedFonts.has(fam)){ loadedFonts.add(fam);
     const l=document.createElement("link"); l.rel="stylesheet"; l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+(SINGLE_WEIGHT.has(fam)?"":":wght@400;700")+"&display=swap"; document.head.append(l); }
   try{ await document.fonts.load(fontWeight(st)+" 40px \""+fam+"\""); }catch(e){}
 }
-const superText=s=>{ const t=String(s.superText||"").trim(); return sty().upper?t.toUpperCase():t; };
+const superText=s=>{ const t=String(s.superText||"").trim(); return sty().mode!=="psd"&&sty().upper?t.toUpperCase():t; };
 const hasSuper=s=>s.superType&&s.superType!=="None"&&String(s.superText||"").trim();
 /* Layout in a W×H frame (1920×1080 master). Returns geometry shared by SVG, canvas and After Effects. */
 const MC=document.createElement("canvas").getContext("2d");
@@ -1418,7 +1419,7 @@ function layoutSuper(text,st,W,H){
 }
 const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 /* Editable SVG: plate + live text, named groups (Illustrator layers). */
-function superSVG(text,st,W=1920,H=1080,opts={}){
+function designSVG(text,st,W=1920,H=1080,opts={}){
   const L=layoutSuper(text,st,W,H), b=L.box;
   const tx=L.anchor==="middle"?b.x+b.w/2:b.x+L.padX;
   const fontCss=opts.embedFontLink?`<style>@import url('https://fonts.googleapis.com/css2?family=${encodeURIComponent(st.font).replace(/%20/g,"+")}${SINGLE_WEIGHT.has(st.font)?"":":wght@400;700"}&amp;display=swap');</style>`:"";
@@ -1435,7 +1436,7 @@ function superSVG(text,st,W=1920,H=1080,opts={}){
     `<g id="Plate">${plate}</g><g id="Text"${st.shadow?' filter="url(#sh)"':""}><text font-family="${esc(st.font)}, sans-serif" font-weight="${L.fw}" font-size="${L.fs}" letter-spacing="${(st.tracking*L.fs).toFixed(1)}" fill="${st.text}" text-anchor="${L.anchor}">${lines}</text></g></svg>`;
 }
 /* Canvas render (for burned-in stills and PNGs). */
-function drawSuper(ctx,text,st,W,H){
+function designDraw(ctx,text,st,W,H){
   const L=layoutSuper(text,st,W,H), b=L.box; ctx.save();
   const op=st.plateOpacity;
   const hex=(c,a)=>{ const n=parseInt(String(c).slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
@@ -1465,7 +1466,7 @@ async function compositeStill(s,W=960){
 async function overlayPNG(s,W=1920,H=1080){ const st=sty(); await ensureFont(st); const c=document.createElement("canvas"); c.width=W; c.height=H; drawSuper(c.getContext("2d"),superText(s),st,W,H); return new Promise(r=>c.toBlob(r,"image/png")); }
 /* After Effects ExtendScript: one comp per super with an editable text layer + shape plate. */
 function aePostScript(st){ const base=st.font.replace(/\s+/g,""); return SINGLE_WEIGHT.has(st.font)?base+"-Regular":base+(fontWeight(st)>=700?"-Bold":"-Regular"); }
-function aeScript(items,st){
+function designAE(items,st){
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
   const comps=items.map(it=>{ const L=layoutSuper(it.text,st,1920,1080), b=L.box;
     return `{name:${JSON.stringify(it.name)},text:${JSON.stringify(L.lines.join("\r"))},still:${JSON.stringify(it.still||"")},bx:${b.x.toFixed(1)},by:${b.y.toFixed(1)},bw:${b.w.toFixed(1)},bh:${b.h.toFixed(1)},tx:${(L.anchor==="middle"?b.x+b.w/2:b.x+L.padX).toFixed(1)},ty:${(b.y+L.padY+L.fs*0.86).toFixed(1)}}`; }).join(",\n  ");
@@ -1530,6 +1531,7 @@ async function downloadSupersZip(btn,msg){
         it.still="stills/"+nm+".jpg";
       }
     }
+    if(isPsd(st)) st.psd.layers.filter(l=>l.kind==="image"&&l.visible!==false).forEach(l=>z.file("psd_layers/"+fileSafe(l.name)+".png",l.src.split(",")[1],{base64:true}));
     z.file("after_effects/build_supers.jsx",aeScript(items.map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
     z.file("README.txt",`On-screen text (supers) — ${S.project.game||""}
 Font: ${st.font} (${fontWeight(st)}). Install it from Google Fonts or Adobe Fonts before opening the files.
@@ -1563,7 +1565,7 @@ async function suggestStyle(btn,msg){
   }catch(e){ msg.textContent="Couldn't suggest a look: "+((e&&e.message)||"unknown error"); msg.className="err"; btn.disabled=false; }
 }
 function stepSupers(){
-  const st=sty(); ensureFont(st).then(()=>{ document.querySelectorAll("[data-super-preview]").forEach(el=>el.dispatchEvent(new Event("redraw"))); });
+  const st=sty(); ensureFont(st).then(()=>refresh());
   const items=superItems();
   const set=(k,v)=>{ st[k]=v; save(); refresh(); };
   const fld=(label,el)=>h("label",{class:"f"},label,el);
@@ -1577,8 +1579,16 @@ function stepSupers(){
       const f=it.s&&it.s.selected&&it.s.selected!=="none"?frameById(it.s.selected):null;
       const box=h("div",{style:"position:relative;aspect-ratio:16/9;background:#08071A;border-radius:6px;overflow:hidden"});
       if(f&&f.dataUrl) box.append(h("img",{src:f.dataUrl,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
-      const holder=h("div",{style:"position:absolute;inset:0"}); holder.innerHTML=superSVG(it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); box.append(holder);
-      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px"},h("b",null,it.key),h("span",{class:"note"},it.demo?"Sample — add on-screen text to shots to see them here":(it.s.superType))));
+      const holder=h("div",{style:"position:absolute;inset:0"});
+      const paint=()=>{ holder.innerHTML=superSVG(it.s?superText(it.s):it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); };
+      paint(); box.append(holder);
+      if(isPsd(st)){ box.style.cursor="grab"; box.style.touchAction="none";
+        box.addEventListener("pointerdown",e=>{ box.setPointerCapture(e.pointerId); box.style.cursor="grabbing"; const k=1920/box.clientWidth, sx=e.clientX, sy=e.clientY, dx0=st.psdAdj.dx, dy0=st.psdAdj.dy;
+          const mv=ev=>{ st.psdAdj.dx=Math.round(dx0+(ev.clientX-sx)*k); st.psdAdj.dy=Math.round(dy0+(ev.clientY-sy)*k); paint(); };
+          const upf=()=>{ box.removeEventListener("pointermove",mv); box.style.cursor="grab"; save(); refresh(); };
+          box.addEventListener("pointermove",mv); box.addEventListener("pointerup",upf,{once:true}); box.addEventListener("pointercancel",upf,{once:true}); }); }
+      const retype=it.s?(()=>{ const i=h("input",{type:"text",value:it.s.superText||"",placeholder:"Type the on-screen text","aria-label":"On-screen text for "+it.key}); i.addEventListener("input",e=>{ it.s.superText=e.target.value; save(); paint(); }); return i; })():null;
+      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px;flex-wrap:nowrap"},h("b",null,it.key),retype||h("span",{class:"note"},"Sample — add on-screen text to shots to see them here")));
     }));
   }
   function superTextDemo(){ return st.upper?(S.project.game||"Your game").toUpperCase()+" — COMING SOON":(S.project.game||"Your game")+" — coming soon"; }
@@ -1587,7 +1597,9 @@ function stepSupers(){
   return [
     h("h1",null,"Supers"),
     h("p",{class:"lede"},"On-screen text in the game's look."),
-    h("div",{class:"panel"},
+    h("div",{class:"row",style:"margin-bottom:12px"},h("div",{role:"tablist",style:"display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px"},
+      [["design","Simple design"],["psd","PSD template"]].map(([m,lab])=>h("button",{role:"tab","aria-selected":(st.mode||"design")===m?"true":"false",class:"btn small",style:(st.mode||"design")===m?"background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.12)":"background:transparent",onclick:()=>{ st.mode=m; save(); render(); }},lab)))),
+    isPsd(st)||st.mode==="psd"?psdPanel(refresh):h("div",{class:"panel"},
       h("div",{class:"row"},h("b",null,"Look"),st.why?h("span",{class:"note"},st.why):null,h("span",{class:"spacer"}),h("button",{class:"btn primary small",disabled:!SAMPLE,onclick:e=>suggestStyle(e.currentTarget,msg)},"Suggest a look from the brief"),h("button",{class:"btn small",onclick:()=>{ S.style=Object.assign({},DEFAULT_STYLE); save(); render(); }},"Reset")),
       msg,
       h("div",{class:"grid2",style:"margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"},
@@ -1603,6 +1615,169 @@ function stepSupers(){
 }
 
 
+
+
+/* ===================== SUPERS FROM A PSD TEMPLATE ===================== */
+/* Upload a PSD: image layers keep their artwork, text layers become live text. Each shot retypes the main text;
+   placement, size, colour, stroke and drop shadow are adjustable. */
+let psdLibLoading=null;
+function loadPsdLib(){ if(window.agPsd) return Promise.resolve(); if(!psdLibLoading) psdLibLoading=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=location.hostname.endsWith("vercel.app")||location.hostname==="localhost"?"/vendor/ag-psd.js":"https://cdn.jsdelivr.net/npm/ag-psd@31.0.3/dist/bundle.js"; s.onload=res; s.onerror=()=>rej(new Error("The PSD reader didn't load.")); document.head.append(s); }); return psdLibLoading; }
+const toHex=c=>{ if(!c) return null; let r,g,b; if("fr" in c){ r=c.fr*255; g=c.fg*255; b=c.fb*255; } else if("r" in c){ r=c.r; g=c.g; b=c.b; } else return null; const x=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0"); return ("#"+x(r)+x(g)+x(b)).toUpperCase(); };
+const uv=v=>v==null?0:(typeof v==="number"?v:(v.value||0));
+async function importPSD(file){
+  await loadPsdLib();
+  const psd=agPsd.readPsd(await file.arrayBuffer(),{skipThumbnail:true,skipCompositeImageData:true,useImageData:false});
+  const W=psd.width, H=psd.height, layers=[];
+  const MAXW=2400, k=W>MAXW?MAXW/W:1;
+  (function walk(list,hidden){ for(const L of (list||[])){ const hid=hidden||L.hidden;
+    if(L.children){ walk(L.children,hid); continue; }
+    if(hid) continue;
+    const x=L.left||0, y=L.top||0, w=(L.right||0)-x, h=(L.bottom||0)-y;
+    if(L.text&&L.text.text!=null){
+      const tr=L.text.transform||[1,0,0,1,0,0], st=L.text.style||{}, ps=L.text.paragraphStyle||{};
+      const scaleY=Math.hypot(tr[2]||0,tr[3]||1)||1;
+      const fx=L.effects||{}, ds=(fx.dropShadow||[]).find(e=>e.enabled!==false), sk=(fx.stroke||[]).find(e=>e.enabled!==false);
+      layers.push({kind:"text",name:L.name||"Text",text:String(L.text.text).replace(/\r/g,"\n").trim(),font:(st.font&&st.font.name)||"Arial",size:(st.fontSize||48)*scaleY,color:toHex(st.fillColor)||"#FFFFFF",
+        tracking:(st.tracking||0)/1000,align:ps.justification==="center"?"center":ps.justification==="right"?"right":"left",x,y,w,h,
+        stroke:sk?{on:true,width:uv(sk.size),color:toHex(sk.color)||"#000000"}:null,
+        shadow:ds?{on:true,color:toHex(ds.color)||"#000000",opacity:ds.opacity==null?0.75:ds.opacity,distance:uv(ds.distance),angle:ds.angle==null?120:ds.angle,blur:uv(ds.size)}:null});
+    } else if(L.canvas&&w>0&&h>0){
+      let c=L.canvas; if(k!==1){ const d=document.createElement("canvas"); d.width=Math.round(w*k); d.height=Math.round(h*k); d.getContext("2d").drawImage(L.canvas,0,0,d.width,d.height); c=d; }
+      layers.push({kind:"image",name:L.name||"Layer",x,y,w,h,src:c.toDataURL("image/png"),visible:true});
+    }
+  }})(psd.children,false);
+  if(!layers.some(l=>l.kind==="text")) throw new Error("No text layers found in this PSD. Keep the text as live type (not rasterised) and try again.");
+  const texts=layers.filter(l=>l.kind==="text"); const primary=texts.reduce((a,b)=>b.size>a.size?b:a,texts[0]); primary.primary=true;
+  const fullFrame=W>=1280&&Math.abs(W/H-16/9)<0.05;
+  const st=sty(); st.mode="psd";
+  st.psd={name:file.name,W,H,fullFrame,layers};
+  st.psdAdj={dx:0,dy:0,scale:1,textSize:1,textColor:"",font:"",tracking:primary.tracking||0,
+    stroke:primary.stroke||{on:false,width:4,color:"#000000"},shadow:primary.shadow||{on:false,color:"#000000",opacity:0.75,distance:6,angle:120,blur:8}};
+  save();
+}
+const psdImgCache=new Map();
+async function ensurePsdAssets(st){
+  if(st.mode!=="psd"||!st.psd) return;
+  await Promise.all(st.psd.layers.filter(l=>l.kind==="image"&&l.visible!==false&&!psdImgCache.has(l.src)).map(l=>loadImg(l.src).then(im=>psdImgCache.set(l.src,im)).catch(()=>{})));
+  if(st.psdFont&&!document.fonts.check("40px \""+st.psdFont.name+"\"")){ try{ const ff=new FontFace(st.psdFont.name,"url("+st.psdFont.data+")"); await ff.load(); document.fonts.add(ff); }catch(e){} }
+  const fams=new Set(st.psd.layers.filter(l=>l.kind==="text").map(l=>psdFontOf(st,l)));
+  for(const f of fams){ if(FONT_CHOICES.includes(f)) await ensureFont(Object.assign({},st,{mode:"design",font:f})); else { try{ await document.fonts.load("40px \""+f+"\""); }catch(e){} } }
+}
+const psdFontOf=(st,l)=>l.primary&&st.psdAdj.font?st.psdAdj.font:(st.psdFont&&l.primary&&!st.psdAdj.font?st.psdFont.name:l.font);
+/* Geometry: PSD space → frame. Returns a function mapping PSD px to frame px plus the scale. */
+function psdFrame(st,FW,FH){
+  const P=st.psd, A=st.psdAdj, k=FW/1920;
+  let s,ox,oy;
+  if(P.fullFrame){ s=1920/P.W; ox=0; oy=0; }
+  else { s=1; ox=96; oy=1080-96-P.H; }
+  s*=A.scale;
+  return {map:(x,y)=>[(ox+x*s+A.dx)*k,(oy+y*s+A.dy)*k],s:s*k};
+}
+function psdTextLayout(st,l,text,FW,FH){
+  const A=st.psdAdj, F=psdFrame(st,FW,FH), size=l.size*F.s*(l.primary?A.textSize:1);
+  const lines=String(text).split("\n");
+  const [x0,y0]=F.map(l.x,l.y), [x1]=F.map(l.x+l.w,l.y);
+  const ax=l.align==="center"?(x0+x1)/2:l.align==="right"?x1:x0;
+  return {size,lines,ax,top:y0,lh:size*1.15,anchor:l.align==="center"?"middle":l.align==="right"?"end":"start",font:psdFontOf(st,l),color:l.primary&&A.textColor?A.textColor:l.color,tracking:(l.primary?A.tracking:l.tracking)*size};
+}
+function psdTextFor(l,text){ return l.primary?text:l.text; }
+function psdSVG(text,st,W=1920,H=1080,opts={}){
+  const P=st.psd, A=st.psdAdj, F=psdFrame(st,W,H); let out="", defs="";
+  if(A.shadow.on){ const rad=(A.shadow.angle||120)*Math.PI/180, d=A.shadow.distance*F.s; defs+=`<filter id="psdsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${(-Math.cos(rad)*d).toFixed(1)}" dy="${(Math.sin(rad)*d).toFixed(1)}" stdDeviation="${(A.shadow.blur*F.s/2).toFixed(1)}" flood-color="${A.shadow.color}" flood-opacity="${A.shadow.opacity}"/></filter>`; }
+  for(const l of P.layers){
+    if(l.kind==="image"){ if(l.visible===false) continue; const [x,y]=F.map(l.x,l.y); out+=`<g id="${esc(fileSafe(l.name))}"><image href="${l.src}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(l.w*F.s).toFixed(1)}" height="${(l.h*F.s).toFixed(1)}"/></g>`; continue; }
+    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H), stroke=l.primary&&A.stroke.on?` stroke="${A.stroke.color}" stroke-width="${(A.stroke.width*2*F.s).toFixed(1)}" stroke-linejoin="round" paint-order="stroke"`:"";
+    const tsp=T.lines.map((ln,i)=>`<tspan x="${T.ax.toFixed(1)}" y="${(T.top+T.size*0.82+i*T.lh).toFixed(1)}">${esc(ln)}</tspan>`).join("");
+    out+=`<g id="${esc(fileSafe(l.name))}${l.primary?"_main_text":""}"${l.primary&&A.shadow.on?' filter="url(#psdsh)"':""}><text font-family="${esc(T.font)}, sans-serif" font-size="${T.size.toFixed(1)}" letter-spacing="${T.tracking.toFixed(1)}" fill="${T.color}" text-anchor="${T.anchor}"${stroke}>${tsp}</text></g>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>${defs}</defs>`+(opts.background?`<g id="Reference_still"><image href="${opts.background}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/></g>`:"")+out+`</svg>`;
+}
+function psdDraw(ctx,text,st,W,H){
+  const P=st.psd, A=st.psdAdj, F=psdFrame(st,W,H);
+  for(const l of P.layers){
+    if(l.kind==="image"){ if(l.visible===false) continue; const im=psdImgCache.get(l.src); if(!im) continue; const [x,y]=F.map(l.x,l.y); ctx.drawImage(im,x,y,l.w*F.s,l.h*F.s); continue; }
+    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H);
+    ctx.save(); ctx.font=Math.round(T.size)+"px \""+T.font+"\", sans-serif"; ctx.textAlign=T.anchor==="middle"?"center":T.anchor==="end"?"right":"left"; ctx.textBaseline="alphabetic";
+    if("letterSpacing" in ctx) ctx.letterSpacing=T.tracking.toFixed(1)+"px";
+    if(l.primary&&A.shadow.on){ const rad=(A.shadow.angle||120)*Math.PI/180, d=A.shadow.distance*F.s; const n=parseInt(A.shadow.color.slice(1),16);
+      ctx.shadowColor=`rgba(${n>>16&255},${n>>8&255},${n&255},${A.shadow.opacity})`; ctx.shadowBlur=A.shadow.blur*F.s; ctx.shadowOffsetX=-Math.cos(rad)*d; ctx.shadowOffsetY=Math.sin(rad)*d; }
+    T.lines.forEach((ln,i)=>{ const y=T.top+T.size*0.82+i*T.lh;
+      if(l.primary&&A.stroke.on){ ctx.lineWidth=A.stroke.width*2*F.s; ctx.lineJoin="round"; ctx.strokeStyle=A.stroke.color; ctx.strokeText(ln,T.ax,y); ctx.shadowColor="transparent"; }
+      ctx.fillStyle=T.color; ctx.fillText(ln,T.ax,y); });
+    ctx.restore();
+  }
+}
+function psdAE(items,st){
+  const P=st.psd, A=st.psdAdj, F=psdFrame(st,1920,1080);
+  const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
+  const imgs=P.layers.filter(l=>l.kind==="image"&&l.visible!==false).map(l=>{ const [x,y]=F.map(l.x,l.y); return `{file:${JSON.stringify("psd_layers/"+fileSafe(l.name)+".png")},name:${JSON.stringify(l.name)},cx:${(x+l.w*F.s/2).toFixed(1)},cy:${(y+l.h*F.s/2).toFixed(1)},scale:${(100*F.s*(P.W>2400?P.W/2400:1)).toFixed(2)}}`; }).join(",");
+  const texts=P.layers.filter(l=>l.kind==="text");
+  const cards=items.map(it=>`{name:${JSON.stringify(it.name)},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(st,l,psdTextFor(l,it.text),1920,1080);
+    return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(T.font.replace(/\s+/g,""))},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${(T.top+T.size*0.82).toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary}}`; }).join(",")}]}`).join(",\n  ");
+  return `// Tech Script Generator — builds one After Effects comp per on-screen text card from your PSD template (${P.name}).
+// File > Scripts > Run Script File… Keep this file next to the "psd_layers" and "stills" folders (one level up).
+(function(){
+app.beginUndoGroup("Tech Script supers (PSD)");
+var root=File($.fileName).parent.parent;
+var IMGS=[${imgs}];
+var FX={stroke:${!!A.stroke.on},strokeW:${(A.stroke.width*F.s).toFixed(1)},strokeC:${rgb(A.stroke.color)},shadow:${!!A.shadow.on},shC:${rgb(A.shadow.color)},shO:${Math.round(A.shadow.opacity*255)},shD:${(A.shadow.distance*F.s).toFixed(1)},shA:${A.shadow.angle||120},shS:${(A.shadow.blur*F.s).toFixed(1)}};
+var CARDS=[
+  ${cards}
+];
+var folder=app.project.items.addFolder("Tech Script supers");
+var footage={};
+function imp(rel){ if(footage[rel]) return footage[rel]; var f=new File(root.fsName+"/"+rel); if(!f.exists) return null; var it=app.project.importFile(new ImportOptions(f)); it.parentFolder=folder; footage[rel]=it; return it; }
+for(var i=0;i<CARDS.length;i++){
+  var c=CARDS[i], comp=app.project.items.addComp(c.name,1920,1080,1,5,30); comp.parentFolder=folder;
+  if(c.still){ var sf=imp(c.still); if(sf){ var bg=comp.layers.add(sf); bg.name="Reference still (guide)"; bg.guideLayer=true; var s=Math.max(1920/sf.width,1080/sf.height)*100; bg.property("Scale").setValue([s,s]); } }
+  for(var k=0;k<IMGS.length;k++){ var im=imp(IMGS[k].file); if(!im) continue; var L=comp.layers.add(im); L.name=IMGS[k].name; L.property("Position").setValue([IMGS[k].cx,IMGS[k].cy]); L.property("Scale").setValue([IMGS[k].scale,IMGS[k].scale]); }
+  for(var t=0;t<c.texts.length;t++){ var T=c.texts[t], tl=comp.layers.addText(T.text); tl.name=T.name+(T.main?" (main)":"");
+    var d=tl.property("Source Text").value; try{ d.font=T.font; }catch(e){}
+    d.fontSize=T.size; d.fillColor=T.color; d.applyFill=true;
+    if(T.main&&FX.stroke){ d.applyStroke=true; d.strokeColor=FX.strokeC; d.strokeWidth=FX.strokeW*2; d.strokeOverFill=false; } else d.applyStroke=false;
+    d.justification=T.just==="center"?ParagraphJustification.CENTER_JUSTIFY:T.just==="right"?ParagraphJustification.RIGHT_JUSTIFY:ParagraphJustification.LEFT_JUSTIFY;
+    tl.property("Source Text").setValue(d); tl.property("Position").setValue([T.x,T.y]);
+    if(T.main&&FX.shadow){ var ds=tl.property("Effects").addProperty("ADBE Drop Shadow"); ds.property("Shadow Color").setValue(FX.shC); ds.property("Opacity").setValue(FX.shO); ds.property("Direction").setValue((FX.shA+90)%360); ds.property("Distance").setValue(FX.shD); ds.property("Softness").setValue(FX.shS); }
+  }
+}
+app.endUndoGroup();
+alert("Built "+CARDS.length+" super comps in the 'Tech Script supers' folder.");
+})();
+`;
+}
+/* Supers step UI for PSD mode */
+function psdPanel(refresh){
+  const st=sty(), A=st.psdAdj, P=st.psd;
+  const up=h("input",{type:"file",accept:".psd,image/vnd.adobe.photoshop",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; msg.textContent="Reading "+f.name+"…"; msg.className="note"; try{ await importPSD(f); render(); }catch(err){ msg.textContent=(err&&err.message)||"Couldn't read that PSD."; msg.className="err"; } }});
+  const fontUp=h("input",{type:"file",accept:".otf,.ttf,.woff,.woff2",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }); const name=f.name.replace(/\.[^.]+$/,""); st.psdFont={name,data}; A.font=name; save(); await ensurePsdAssets(st); render(); }});
+  const msg=h("p",{class:"note"});
+  if(!P) return h("div",{class:"panel"},h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:()=>up.click()},"Upload PSD")),up,msg,
+    h("p",{class:"note"},"Keep the text as live type layers. Artwork layers are kept as they are."));
+  const set=(path,v)=>{ const ks=path.split("."); let o=A; while(ks.length>1) o=o[ks.shift()]; o[ks[0]]=v; save(); refresh(); };
+  const range=(label,path,min,max,step)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A); const i=h("input",{type:"range",min,max,step,value:cur}); i.addEventListener("input",e=>set(path,Number(e.target.value))); return h("label",{class:"f"},label,i); };
+  const color=(label,path)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A)||"#FFFFFF"; const i=h("input",{type:"color",value:cur,style:"height:36px;padding:2px"}); i.addEventListener("input",e=>set(path,e.target.value.toUpperCase())); return h("label",{class:"f"},label,i); };
+  const toggle=(label,path)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A); const c=h("input",{type:"checkbox",checked:!!cur}); c.addEventListener("change",e=>set(path,e.target.checked)); return h("label",{class:"row",style:"font-size:14px;font-weight:600"},c,label); };
+  const texts=P.layers.filter(l=>l.kind==="text"), mainL=texts.find(l=>l.primary);
+  const fonts=[...new Set([mainL.font,...(st.psdFont?[st.psdFont.name]:[]),...FONT_CHOICES])];
+  const fontSel=h("select",{onchange:async e=>{ A.font=e.target.value===mainL.font?"":e.target.value; save(); await ensurePsdAssets(st); refresh(); }},fonts.map(f=>h("option",{value:f,selected:(A.font||mainL.font)===f},f+(f===mainL.font?" (from PSD)":""))));
+  return h("div",{class:"panel"},
+    h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"counter"},P.name),h("span",{class:"spacer"}),h("button",{class:"btn small",onclick:()=>up.click()},"Replace"),h("button",{class:"btn small ghost",onclick:()=>{ st.mode="design"; save(); render(); }},"Use simple design")),up,fontUp,msg,
+    h("div",{class:"row",style:"margin-top:8px;gap:6px"},h("span",{class:"note"},"Main text:"),h("select",{onchange:e=>{ texts.forEach(l=>l.primary=l.name===e.target.value); save(); refresh(); }},texts.map(l=>h("option",{value:l.name,selected:l.primary},l.name))),
+      P.layers.filter(l=>l.kind==="image").map(l=>{ const c=h("input",{type:"checkbox",checked:l.visible!==false}); c.addEventListener("change",e=>{ l.visible=e.target.checked; save(); refresh(); }); return h("label",{class:"row",style:"font-size:13px;gap:4px"},c,l.name); })),
+    h("div",{class:"grid2",style:"margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))"},
+      range("Move left / right","dx",-1920,1920,2), range("Move up / down","dy",-1080,1080,2), range("Overall size","scale",0.3,2.5,0.01), range("Text size","textSize",0.3,2.5,0.01),
+      h("label",{class:"f"},"Font",fontSel,h("button",{class:"btn ghost small",style:"align-self:flex-start;padding:2px 0",onclick:()=>fontUp.click()},"Upload font file")),
+      color("Text colour","textColor"), range("Letter spacing","tracking",-0.05,0.3,0.005),
+      h("div",{class:"f"},"Stroke",toggle("On","stroke.on")), range("Stroke width","stroke.width",0,20,0.5), color("Stroke colour","stroke.color"),
+      h("div",{class:"f"},"Drop shadow",toggle("On","shadow.on")), color("Shadow colour","shadow.color"), range("Shadow opacity","shadow.opacity",0,1,0.05), range("Shadow distance","shadow.distance",0,40,1), range("Shadow angle","shadow.angle",0,360,5), range("Shadow blur","shadow.blur",0,40,1)),
+    h("p",{class:"note",style:"margin-top:8px"},"Tip: drag the text on any card below to move it. Retype each card's text right under its preview."));
+}
+
+const isPsd=st=>st&&st.mode==="psd"&&st.psd;
+function superSVG(text,st,W=1920,H=1080,opts={}){ return isPsd(st)?psdSVG(text,st,W,H,opts):designSVG(text,st,W,H,opts); }
+function drawSuper(ctx,text,st,W,H){ return isPsd(st)?psdDraw(ctx,text,st,W,H):designDraw(ctx,text,st,W,H); }
+function aeScript(items,st){ return isPsd(st)?psdAE(items,st):designAE(items,st); }
+async function overlayDataURL(s,W=960,H=540){ const st=sty(); await ensureFont(st); const c=document.createElement("canvas"); c.width=W; c.height=H; drawSuper(c.getContext("2d"),superText(s),st,W,H); return c.toDataURL("image/png"); }
 
 /* ===================== SHARE: developer brief page (v2 — short, previewable) ===================== */
 function shr(){ if(!S.share) S.share={uploadLink:"",deadline:"",contact:"",message:"",summary:"",captureList:[],briefId:"",briefUrl:"",publishedAt:"",responses:null}; return S.share; }
@@ -1646,7 +1821,7 @@ async function buildBriefPayload(withAudio){
   for(const c of cuts()){
     const list=shotsOf(c), shots=[]; let prev=null, n=0;
     for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
-      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
+      shots.push({key:cutLabel(c)+"-"+pad(i+1),scene:sc,shot:n,desc:s.desc,shotType:s.shotType,graphics:hasSuper(s)?s.superType:"",superText:hasSuper(s)?superText(s):"",superPng:hasSuper(s)&&isPsd(st)?await overlayDataURL(s):null,sound:s.sound&&s.sound!=="None"?s.sound:"",soundDesc:s.soundDesc||"",still:await stillForBrief(s),needsCapture:!s.selected||s.status==="Needs capture"}); }
     out.cuts.push({label:cutLabel(c),name:c==="Other"?(p.videoTypeOther||"Other"):c,duration:p.durations[c]||"",shots});
   }
   return out;

@@ -16,7 +16,7 @@ AI runs on **Rupert** (rupert.indie.io), indie.io's own model server.
 | `api/health.js` | Open `/api/health` to check the Rupert connection. |
 | `api/config.js` | Gives the page the Google client ID. |
 | `brief.html` | The developer page (`/b/<id>`): tabs per trailer, recording tips, music with preview + choose. |
-| `vendor/` | ExcelJS, JSZip and the MP3 encoder (music previews), bundled so nothing depends on a CDN. |
+| `vendor/` | ExcelJS, JSZip, the MP3 encoder (music previews) and the PSD reader, bundled so nothing depends on a CDN. |
 | `api/brief.js`, `api/brief-response.js`, `api/brief-responses.js` | Publish briefs, receive and read developer replies. |
 | `api/projects.js` | Saved projects per indie.io account (Save, Projects, autosave). |
 | `api/_store.js`, `api/_auth.js` | Blob storage + indie.io sign-in check. |
@@ -88,6 +88,11 @@ They're overlaid on stills in the sheet and the brief page, and **Download super
 - `png_transparent/` — 1920×1080 overlays
 - `after_effects/build_supers.jsx` — File → Scripts → Run Script File… builds one comp per card with an editable text layer
 Install the font (Google Fonts / Adobe Fonts) first so text stays live.
+
+**PSD template:** Supers → **PSD template** → **Upload PSD**. Artwork layers are kept; live text layers stay editable (keep text as type, not
+rasterised). Retype each card's text under its preview, drag a card to move the graphic, and adjust size, font (or upload the font file),
+colour, stroke and drop shadow. Downloads add `psd_layers/` PNGs, and the After Effects script rebuilds each card with the artwork layers
+plus editable text (stroke + drop shadow applied).
 
 ## Limits
 
