@@ -1531,7 +1531,7 @@ async function downloadSupersZip(btn,msg){
         it.still="stills/"+nm+".jpg";
       }
     }
-    if(isPsd(st)) st.psd.layers.filter(l=>l.kind==="image"&&l.visible!==false).forEach(l=>z.file("psd_layers/"+fileSafe(l.name)+".png",l.src.split(",")[1],{base64:true}));
+    if(isPsd(st)){ const art=renderArtwork(st,1920,1080); z.file("psd_layers/artwork.png",art.toDataURL("image/png").split(",")[1],{base64:true}); }
     z.file("after_effects/build_supers.jsx",aeScript(items.map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
     z.file("README.txt",`On-screen text (supers) — ${S.project.game||""}
 Font: ${st.font} (${fontWeight(st)}). Install it from Google Fonts or Adobe Fonts before opening the files.
@@ -1617,127 +1617,212 @@ function stepSupers(){
 
 
 
-/* ===================== SUPERS FROM A PSD TEMPLATE ===================== */
-/* Upload a PSD: image layers keep their artwork, text layers become live text. Each shot retypes the main text;
-   placement, size, colour, stroke and drop shadow are adjustable. */
+
+/* ===================== SUPERS FROM A PSD TEMPLATE (v2: faithful rebuild) ===================== */
 let psdLibLoading=null;
-function loadPsdLib(){ if(window.agPsd) return Promise.resolve(); if(!psdLibLoading) psdLibLoading=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=location.hostname.endsWith("vercel.app")||location.hostname==="localhost"?"/vendor/ag-psd.js":"https://cdn.jsdelivr.net/npm/ag-psd@31.0.3/dist/bundle.js"; s.onload=res; s.onerror=()=>rej(new Error("The PSD reader didn't load.")); document.head.append(s); }); return psdLibLoading; }
+function loadPsdLib(){ if(window.agPsd) return Promise.resolve(); if(!psdLibLoading) psdLibLoading=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=window.TSG_SERVER||location.hostname==="localhost"?"/vendor/ag-psd.js":"https://cdn.jsdelivr.net/npm/ag-psd@31.0.3/dist/bundle.js"; s.onload=res; s.onerror=()=>rej(new Error("The PSD reader didn't load.")); document.head.append(s); }); return psdLibLoading; }
 const toHex=c=>{ if(!c) return null; let r,g,b; if("fr" in c){ r=c.fr*255; g=c.fg*255; b=c.fb*255; } else if("r" in c){ r=c.r; g=c.g; b=c.b; } else return null; const x=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0"); return ("#"+x(r)+x(g)+x(b)).toUpperCase(); };
 const uv=v=>v==null?0:(typeof v==="number"?v:(v.value||0));
+const on=e=>e&&e.enabled!==false&&e.present!==false;
+const firstOn=a=>(Array.isArray(a)?a:a?[a]:[]).find(on);
+/* "Montserrat-ExtraBoldItalic" → {family:"Montserrat", weight:800, italic:true} */
+function parsePostScript(ps){
+  const name=String(ps||"Arial").replace(/MT$/,"");
+  const [fam,sty=""]=name.split("-");
+  const W={thin:100,hairline:100,extralight:200,ultralight:200,light:300,regular:400,book:400,normal:400,medium:500,semibold:600,demibold:600,bold:700,extrabold:800,ultrabold:800,black:900,heavy:900};
+  const s=sty.toLowerCase(); let weight=400; for(const k of Object.keys(W).sort((a,b)=>b.length-a.length)) if(s.includes(k)){ weight=W[k]; break; }
+  const family=fam.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/([A-Z])([A-Z][a-z])/g,"$1 $2").trim();
+  return {ps:name,family,weight,italic:/italic|oblique/i.test(s)};
+}
+const BLEND={multiply:"multiply",screen:"screen",overlay:"overlay",darken:"darken",lighten:"lighten","color dodge":"color-dodge","color burn":"color-burn","hard light":"hard-light","soft light":"soft-light",difference:"difference",exclusion:"exclusion",hue:"hue",saturation:"saturation",color:"color",luminosity:"luminosity"};
+function fxOf(fx){ fx=fx||{}; const ds=firstOn(fx.dropShadow), og=on(fx.outerGlow)?fx.outerGlow:null, sk=firstOn(fx.stroke), sf=firstOn(fx.solidFill), go=firstOn(fx.gradientOverlay);
+  const grad=go&&go.gradient&&go.gradient.colorStops?{angle:go.angle==null?90:go.angle,opacity:go.opacity==null?1:go.opacity,stops:go.gradient.colorStops.map(s=>({at:(s.location||0)/4096,color:toHex(s.color)||"#FFFFFF"})),reverse:!!go.reverse}:null;
+  return {shadow:ds?{color:toHex(ds.color)||"#000000",opacity:ds.opacity==null?.75:ds.opacity,distance:uv(ds.distance),angle:ds.angle==null?120:ds.angle,blur:uv(ds.size)}:null,
+    glow:og?{color:toHex(og.color)||"#FFFFFF",opacity:og.opacity==null?.75:og.opacity,blur:uv(og.size)}:null,
+    stroke:sk&&(sk.fillType||"color")==="color"?{width:uv(sk.size),color:toHex(sk.color)||"#000000",opacity:sk.opacity==null?1:sk.opacity}:null,
+    fill:sf?{color:toHex(sf.color)||"#FFFFFF",opacity:sf.opacity==null?1:sf.opacity}:null, grad};
+}
 async function importPSD(file){
   await loadPsdLib();
-  const psd=agPsd.readPsd(await file.arrayBuffer(),{skipThumbnail:true,skipCompositeImageData:true,useImageData:false});
-  const W=psd.width, H=psd.height, layers=[];
-  const MAXW=2400, k=W>MAXW?MAXW/W:1;
-  (function walk(list,hidden){ for(const L of (list||[])){ const hid=hidden||L.hidden;
-    if(L.children){ walk(L.children,hid); continue; }
+  const psd=agPsd.readPsd(await file.arrayBuffer(),{skipThumbnail:true});
+  const W=psd.width, H=psd.height, layers=[], warn=new Set(), MAXW=2400, k=W>MAXW?MAXW/W:1;
+  const png=cv=>{ if(!cv) return null; if(k===1) return cv.toDataURL("image/png"); const d=document.createElement("canvas"); d.width=Math.max(1,Math.round(cv.width*k)); d.height=Math.max(1,Math.round(cv.height*k)); d.getContext("2d").drawImage(cv,0,0,d.width,d.height); return d.toDataURL("image/png"); };
+  let lastBase=-1;
+  const linked=new Map((psd.linkedFiles||[]).map(f=>[f.id,f]));
+  const ID={ox:0,oy:0,sx:1,sy:1};
+  // Smart objects: if the embedded PSD/PSB holds live text, open it and bring its layers in (positioned and scaled).
+  const expandSmart=(L,T)=>{
+    const pl=L.placedLayer, f=pl&&linked.get(pl.id); if(!f||!f.data) return null;
+    let inner; try{ inner=agPsd.readPsd(f.data.buffer.slice(f.data.byteOffset,f.data.byteOffset+f.data.byteLength),{skipThumbnail:true,skipCompositeImageData:true}); }catch(e){ return null; }
+    const hasText=list=>(list||[]).some(x=>x.text||hasText(x.children)); if(!hasText(inner.children)) return null;
+    const q=pl.transform||[], iw=pl.width||inner.width, ih=pl.height||inner.height;
+    if(q.length<8||!iw||!ih) return null;
+    if(Math.abs(q[1]-q[3])>1||Math.abs(q[0]-q[6])>1) warn.add("rotated smart objects (shown unrotated)");
+    (inner.linkedFiles||[]).forEach(x=>linked.set(x.id,x));
+    return {children:inner.children,T:{ox:T.ox+q[0]*T.sx,oy:T.oy+q[1]*T.sy,sx:T.sx*(q[2]-q[0])/iw,sy:T.sy*(q[7]-q[1])/ih}};
+  };
+  (function walk(list,hidden,opacity,T){ T=T||ID; for(const L of (list||[])){
+    const hid=hidden||L.hidden, op=opacity*(L.opacity==null?1:L.opacity);
+    if(L.children){ walk(L.children,hid,op,T); continue; }
+    if(L.placedLayer&&!hid){ const ex=expandSmart(L,T); if(ex){ warn.add("text inside smart objects (opened and made editable)"); walk(ex.children,false,op,ex.T); continue; } }
+    if(L.adjustment){ if(!hid) warn.add("adjustment layers"); continue; }
     if(hid) continue;
-    const x=L.left||0, y=L.top||0, w=(L.right||0)-x, h=(L.bottom||0)-y;
+    const X=v=>T.ox+v*T.sx, Y=v=>T.oy+v*T.sy;
+    const x=X(L.left||0), y=Y(L.top||0), w=((L.right||0)-(L.left||0))*T.sx, h=((L.bottom||0)-(L.top||0))*T.sy, fx=fxOf(L.effects);
+    if(T!==ID){ ["shadow","glow","stroke"].forEach(k=>{ if(fx[k]){ if(fx[k].width!=null) fx[k].width*=T.sy; if(fx[k].distance!=null) fx[k].distance*=T.sy; if(fx[k].blur!=null) fx[k].blur*=T.sy; } }); }
+    if(L.effects&&(on(L.effects.bevel)||on(L.effects.innerGlow)||on(L.effects.satin)||on(L.effects.patternOverlay)||on(L.effects.innerShadow&&L.effects.innerShadow[0]))) warn.add("bevel / inner shadow / pattern effects");
     if(L.text&&L.text.text!=null){
-      const tr=L.text.transform||[1,0,0,1,0,0], st=L.text.style||{}, ps=L.text.paragraphStyle||{};
-      const scaleY=Math.hypot(tr[2]||0,tr[3]||1)||1;
-      const fx=L.effects||{}, ds=(fx.dropShadow||[]).find(e=>e.enabled!==false), sk=(fx.stroke||[]).find(e=>e.enabled!==false);
-      layers.push({kind:"text",name:L.name||"Text",text:String(L.text.text).replace(/\r/g,"\n").trim(),font:(st.font&&st.font.name)||"Arial",size:(st.fontSize||48)*scaleY,color:toHex(st.fillColor)||"#FFFFFF",
-        tracking:(st.tracking||0)/1000,align:ps.justification==="center"?"center":ps.justification==="right"?"right":"left",x,y,w,h,
-        stroke:sk?{on:true,width:uv(sk.size),color:toHex(sk.color)||"#000000"}:null,
-        shadow:ds?{on:true,color:toHex(ds.color)||"#000000",opacity:ds.opacity==null?0.75:ds.opacity,distance:uv(ds.distance),angle:ds.angle==null?120:ds.angle,blur:uv(ds.size)}:null});
+      const t=L.text, tr=t.transform||[1,0,0,1,x,y+h], base=t.style||{}, run=(t.styleRuns&&t.styleRuns[0]&&t.styleRuns[0].style)||{}, S2=Object.assign({},base,run);
+      const pst=Object.assign({},t.paragraphStyle||{},(t.paragraphStyleRuns&&t.paragraphStyleRuns[0]&&t.paragraphStyleRuns[0].style)||{});
+      const scaleY=(Math.hypot(tr[2]||0,tr[3]||1)||1)*T.sy, scaleX=(Math.hypot(tr[0]||1,tr[1]||0)||1)*T.sx, f=parsePostScript(S2.font&&S2.font.name);
+      if(t.warp&&t.warp.style&&t.warp.style!=="none") warn.add("warped text");
+      if((t.styleRuns||[]).length>1){ const fonts=new Set(t.styleRuns.map(r=>(r.style&&r.style.font&&r.style.font.name)||"")); const cols=new Set(t.styleRuns.map(r=>JSON.stringify(r.style&&r.style.fillColor||""))); if(fonts.size>1||cols.size>1) warn.add("mixed styles inside one text layer (first style used)"); }
+      const size=(S2.fontSize||48)*scaleY, just=pst.justification==="center"?"center":pst.justification==="right"?"right":"left";
+      const box=t.shapeType==="box"&&t.boxBounds?t.boxBounds:null;
+      let ax,base0;
+      if(box){ const bx0=X(tr[4])+box[0]*scaleX, bx1=X(tr[4])+box[2]*scaleX; ax=just==="center"?(bx0+bx1)/2:just==="right"?bx1:bx0; base0=Y(tr[5])+box[1]*scaleY+size*0.8; }
+      else { ax=X(tr[4]); base0=Y(tr[5]); }
+      layers.push({kind:"text",name:L.name||"Text",text:String(t.text).replace(/\r/g,"\n").replace(/\n+$/,""),font:f.family,ps:f.ps,weight:S2.fauxBold?700:f.weight,italic:f.italic||!!S2.fauxItalic,
+        size,color:fx.fill?fx.fill.color:(toHex(S2.fillColor)||"#FFFFFF"),tracking:(S2.tracking||0)/1000,caps:S2.fontCaps===2,lead:(S2.autoLeading===false&&S2.leading?S2.leading*scaleY:size*1.2),
+        align:just,ax,baseline:base0,x,y,w,h,opacity:op,fx});
     } else if(L.canvas&&w>0&&h>0){
-      let c=L.canvas; if(k!==1){ const d=document.createElement("canvas"); d.width=Math.round(w*k); d.height=Math.round(h*k); d.getContext("2d").drawImage(L.canvas,0,0,d.width,d.height); c=d; }
-      layers.push({kind:"image",name:L.name||"Layer",x,y,w,h,src:c.toDataURL("image/png"),visible:true});
+      if(L.placedLayer) warn.add("smart objects (kept as artwork)");
+      const m=L.mask&&L.mask.canvas&&!L.mask.disabled?{src:png(L.mask.canvas),x:X(L.mask.left||0),y:Y(L.mask.top||0),w:((L.mask.right||0)-(L.mask.left||0))*T.sx,h:((L.mask.bottom||0)-(L.mask.top||0))*T.sy,def:L.mask.defaultColor||0}:null;
+      const idx=layers.length; if(!L.clipping) lastBase=idx;
+      layers.push({kind:"image",name:L.name||"Layer",x,y,w,h,src:png(L.canvas),visible:true,opacity:op*(L.fillOpacity==null?1:L.fillOpacity),blend:BLEND[L.blendMode]||"source-over",clip:L.clipping&&lastBase>=0&&lastBase!==idx?lastBase:null,mask:m,fx});
     }
-  }})(psd.children,false);
-  if(!layers.some(l=>l.kind==="text")) throw new Error("No text layers found in this PSD. Keep the text as live type (not rasterised) and try again.");
+  }})(psd.children,false,1,ID);
+  if(!layers.some(l=>l.kind==="text")){
+    const e=new Error("No editable text in this PSD (it's rasterised). You can still match its look with AI."); e.noText=true;
+    if(psd.canvas){ const d=document.createElement("canvas"); const pk=Math.min(1,1280/W); d.width=Math.round(W*pk); d.height=Math.round(H*pk); d.getContext("2d").drawImage(psd.canvas,0,0,d.width,d.height); e.preview=d.toDataURL("image/png"); }
+    throw e;
+  }
   const texts=layers.filter(l=>l.kind==="text"); const primary=texts.reduce((a,b)=>b.size>a.size?b:a,texts[0]); primary.primary=true;
-  const fullFrame=W>=1280&&Math.abs(W/H-16/9)<0.05;
+  let preview=null; if(psd.canvas){ const d=document.createElement("canvas"); const pk=Math.min(1,960/W); d.width=Math.round(W*pk); d.height=Math.round(H*pk); d.getContext("2d").drawImage(psd.canvas,0,0,d.width,d.height); preview=d.toDataURL("image/png"); }
   const st=sty(); st.mode="psd";
-  st.psd={name:file.name,W,H,fullFrame,layers};
+  st.psd={name:file.name,W,H,fullFrame:W>=1280&&Math.abs(W/H-16/9)<0.05,layers,preview,warnings:[...warn]};
   st.psdAdj={dx:0,dy:0,scale:1,textSize:1,textColor:"",font:"",tracking:primary.tracking||0,
-    stroke:primary.stroke||{on:false,width:4,color:"#000000"},shadow:primary.shadow||{on:false,color:"#000000",opacity:0.75,distance:6,angle:120,blur:8}};
-  save();
+    stroke:primary.fx.stroke?{on:true,width:primary.fx.stroke.width,color:primary.fx.stroke.color}:{on:false,width:4,color:"#000000"},
+    shadow:primary.fx.shadow?Object.assign({on:true},primary.fx.shadow):(primary.fx.glow?{on:true,color:primary.fx.glow.color,opacity:primary.fx.glow.opacity,distance:0,angle:120,blur:primary.fx.glow.blur}:{on:false,color:"#000000",opacity:.75,distance:6,angle:120,blur:8})};
+  artCache.clear(); save();
 }
-const psdImgCache=new Map();
+const psdImgCache=new Map(), artCache=new Map();
 async function ensurePsdAssets(st){
-  if(st.mode!=="psd"||!st.psd) return;
-  await Promise.all(st.psd.layers.filter(l=>l.kind==="image"&&l.visible!==false&&!psdImgCache.has(l.src)).map(l=>loadImg(l.src).then(im=>psdImgCache.set(l.src,im)).catch(()=>{})));
-  if(st.psdFont&&!document.fonts.check("40px \""+st.psdFont.name+"\"")){ try{ const ff=new FontFace(st.psdFont.name,"url("+st.psdFont.data+")"); await ff.load(); document.fonts.add(ff); }catch(e){} }
-  const fams=new Set(st.psd.layers.filter(l=>l.kind==="text").map(l=>psdFontOf(st,l)));
-  for(const f of fams){ if(FONT_CHOICES.includes(f)) await ensureFont(Object.assign({},st,{mode:"design",font:f})); else { try{ await document.fonts.load("40px \""+f+"\""); }catch(e){} } }
+  if(!isPsd(st)) return;
+  const srcs=[]; st.psd.layers.forEach(l=>{ if(l.src) srcs.push(l.src); if(l.mask&&l.mask.src) srcs.push(l.mask.src); });
+  await Promise.all(srcs.filter(s=>!psdImgCache.has(s)).map(s=>loadImg(s).then(im=>psdImgCache.set(s,im)).catch(()=>{})));
+  if(st.psdFont){ try{ if(!document.fonts.check("40px \""+st.psdFont.name+"\"")){ const ff=new FontFace(st.psdFont.name,"url("+st.psdFont.data+")"); await ff.load(); document.fonts.add(ff); } }catch(e){} }
+  for(const l of st.psd.layers.filter(l=>l.kind==="text")){
+    const fam=psdFontOf(st,l);
+    if(!loadedFonts.has(fam)&&!(st.psdFont&&st.psdFont.name===fam)){ loadedFonts.add(fam); const ln=document.createElement("link"); ln.rel="stylesheet"; ln.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+":ital,wght@0,400;0,700;1,400;1,700&display=swap"; document.head.append(ln);
+      const ln2=document.createElement("link"); ln2.rel="stylesheet"; ln2.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+"&display=swap"; document.head.append(ln2); }
+    try{ await document.fonts.load((l.italic?"italic ":"")+l.weight+" 40px \""+fam+"\""); }catch(e){}
+  }
 }
-const psdFontOf=(st,l)=>l.primary&&st.psdAdj.font?st.psdAdj.font:(st.psdFont&&l.primary&&!st.psdAdj.font?st.psdFont.name:l.font);
-/* Geometry: PSD space → frame. Returns a function mapping PSD px to frame px plus the scale. */
+const psdFontOf=(st,l)=>l.primary&&st.psdAdj.font?st.psdAdj.font:(l.primary&&st.psdFont&&!st.psdAdj.font?st.psdFont.name:l.font);
+const fontAvailable=(st,l)=>{ try{ return document.fonts.check((l.italic?"italic ":"")+l.weight+" 40px \""+psdFontOf(st,l)+"\""); }catch(e){ return false; } };
 function psdFrame(st,FW,FH){
-  const P=st.psd, A=st.psdAdj, k=FW/1920;
-  let s,ox,oy;
-  if(P.fullFrame){ s=1920/P.W; ox=0; oy=0; }
-  else { s=1; ox=96; oy=1080-96-P.H; }
-  s*=A.scale;
+  const P=st.psd, A=st.psdAdj, k=FW/1920; let s=P.fullFrame?1920/P.W:1; const ox=P.fullFrame?0:96, oy=P.fullFrame?0:1080-96-P.H; s*=A.scale;
   return {map:(x,y)=>[(ox+x*s+A.dx)*k,(oy+y*s+A.dy)*k],s:s*k};
 }
-function psdTextLayout(st,l,text,FW,FH){
-  const A=st.psdAdj, F=psdFrame(st,FW,FH), size=l.size*F.s*(l.primary?A.textSize:1);
-  const lines=String(text).split("\n");
-  const [x0,y0]=F.map(l.x,l.y), [x1]=F.map(l.x+l.w,l.y);
-  const ax=l.align==="center"?(x0+x1)/2:l.align==="right"?x1:x0;
-  return {size,lines,ax,top:y0,lh:size*1.15,anchor:l.align==="center"?"middle":l.align==="right"?"end":"start",font:psdFontOf(st,l),color:l.primary&&A.textColor?A.textColor:l.color,tracking:(l.primary?A.tracking:l.tracking)*size};
+/* Artwork (all non-text layers) rendered with opacity, blend modes, masks, clipping, and overlay/stroke/shadow/glow effects. */
+function applyOverlays(cv,fx){
+  const W=cv.width,H=cv.height, t=cv.getContext("2d");
+  if(fx.grad){ const g=fx.grad, a=(g.angle||90)*Math.PI/180, cx=W/2, cy=H/2, r=Math.hypot(W,H)/2, lg=t.createLinearGradient(cx-Math.cos(a)*r,cy+Math.sin(a)*r,cx+Math.cos(a)*r,cy-Math.sin(a)*r);
+    (g.reverse?[...g.stops].reverse():g.stops).forEach(s2=>lg.addColorStop(Math.min(1,Math.max(0,s2.at)),s2.color)); t.save(); t.globalCompositeOperation="source-atop"; t.globalAlpha=g.opacity; t.fillStyle=lg; t.fillRect(0,0,W,H); t.restore(); }
+  if(fx.fill){ t.save(); t.globalCompositeOperation="source-atop"; t.globalAlpha=fx.fill.opacity; t.fillStyle=fx.fill.color; t.fillRect(0,0,W,H); t.restore(); }
 }
-function psdTextFor(l,text){ return l.primary?text:l.text; }
-function psdSVG(text,st,W=1920,H=1080,opts={}){
-  const P=st.psd, A=st.psdAdj, F=psdFrame(st,W,H); let out="", defs="";
-  if(A.shadow.on){ const rad=(A.shadow.angle||120)*Math.PI/180, d=A.shadow.distance*F.s; defs+=`<filter id="psdsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${(-Math.cos(rad)*d).toFixed(1)}" dy="${(Math.sin(rad)*d).toFixed(1)}" stdDeviation="${(A.shadow.blur*F.s/2).toFixed(1)}" flood-color="${A.shadow.color}" flood-opacity="${A.shadow.opacity}"/></filter>`; }
-  for(const l of P.layers){
-    if(l.kind==="image"){ if(l.visible===false) continue; const [x,y]=F.map(l.x,l.y); out+=`<g id="${esc(fileSafe(l.name))}"><image href="${l.src}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(l.w*F.s).toFixed(1)}" height="${(l.h*F.s).toFixed(1)}"/></g>`; continue; }
-    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H), stroke=l.primary&&A.stroke.on?` stroke="${A.stroke.color}" stroke-width="${(A.stroke.width*2*F.s).toFixed(1)}" stroke-linejoin="round" paint-order="stroke"`:"";
-    const tsp=T.lines.map((ln,i)=>`<tspan x="${T.ax.toFixed(1)}" y="${(T.top+T.size*0.82+i*T.lh).toFixed(1)}">${esc(ln)}</tspan>`).join("");
-    out+=`<g id="${esc(fileSafe(l.name))}${l.primary?"_main_text":""}"${l.primary&&A.shadow.on?' filter="url(#psdsh)"':""}><text font-family="${esc(T.font)}, sans-serif" font-size="${T.size.toFixed(1)}" letter-spacing="${T.tracking.toFixed(1)}" fill="${T.color}" text-anchor="${T.anchor}"${stroke}>${tsp}</text></g>`;
+function drawFx(target,tmp,fx,F){
+  const W=tmp.width,H=tmp.height, c=target;
+  if(fx.shadow){ const rad=(fx.shadow.angle||120)*Math.PI/180, d=fx.shadow.distance*F.s, n=parseInt(fx.shadow.color.slice(1),16); c.save(); c.shadowColor=`rgba(${n>>16&255},${n>>8&255},${n&255},${fx.shadow.opacity})`; c.shadowBlur=fx.shadow.blur*F.s; c.shadowOffsetX=-Math.cos(rad)*d; c.shadowOffsetY=Math.sin(rad)*d; c.drawImage(tmp,0,0); c.restore(); }
+  if(fx.glow){ const n=parseInt(fx.glow.color.slice(1),16); c.save(); c.shadowColor=`rgba(${n>>16&255},${n>>8&255},${n&255},${fx.glow.opacity})`; c.shadowBlur=fx.glow.blur*F.s; c.drawImage(tmp,0,0); c.restore(); }
+  if(fx.stroke&&fx.stroke.width>0){ const sw=fx.stroke.width*F.s, sc=document.createElement("canvas"); sc.width=W; sc.height=H; const x=sc.getContext("2d");
+    for(let i=0;i<16;i++){ const a=i/16*Math.PI*2; x.drawImage(tmp,Math.cos(a)*sw,Math.sin(a)*sw); } x.globalCompositeOperation="source-in"; x.fillStyle=fx.stroke.color; x.fillRect(0,0,W,H);
+    c.save(); c.globalAlpha*=fx.stroke.opacity; c.drawImage(sc,0,0); c.restore(); }
+  c.drawImage(tmp,0,0);
+}
+function renderArtwork(st,W,H){
+  const P=st.psd, A=st.psdAdj, key=[W,H,A.dx,A.dy,A.scale,P.layers.map(l=>l.visible!==false?1:0).join("")].join("|");
+  if(artCache.has(key)) return artCache.get(key);
+  const F=psdFrame(st,W,H), out=document.createElement("canvas"); out.width=W; out.height=H; const o=out.getContext("2d");
+  const imgs=P.layers.map((l,i)=>({l,i})).filter(x=>x.l.kind==="image");
+  const layerCanvas=l=>{ const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d"); const im=psdImgCache.get(l.src); if(!im) return c; const [lx,ly]=F.map(l.x,l.y); x.drawImage(im,lx,ly,l.w*F.s,l.h*F.s);
+    if(l.mask){ const mi=psdImgCache.get(l.mask.src); if(mi){ const mc=document.createElement("canvas"); mc.width=W; mc.height=H; const m=mc.getContext("2d"); if(l.mask.def){ m.fillStyle="#fff"; m.fillRect(0,0,W,H); m.globalCompositeOperation="destination-out"; m.fillStyle="#000"; const [mx,my]=F.map(l.mask.x,l.mask.y); m.fillRect(mx,my,l.mask.w*F.s,l.mask.h*F.s); m.globalCompositeOperation="source-over"; }
+      const [mx,my]=F.map(l.mask.x,l.mask.y); m.drawImage(mi,mx,my,l.mask.w*F.s,l.mask.h*F.s);
+      const id=m.getImageData(0,0,W,H), d=id.data; for(let p=0;p<d.length;p+=4){ d[p+3]=d[p]; } m.putImageData(id,0,0);
+      x.globalCompositeOperation="destination-in"; x.drawImage(mc,0,0); x.globalCompositeOperation="source-over"; } }
+    return c; };
+  for(const {l,i} of imgs){
+    if(l.clip!=null||l.visible===false) continue;
+    const base=layerCanvas(l), clipped=imgs.filter(x=>x.l.clip===i&&x.l.visible!==false);
+    applyOverlays(base,l.fx||{});
+    if(clipped.length){ const bx=base.getContext("2d"); for(const {l:cl} of clipped){ const cc=layerCanvas(cl); applyOverlays(cc,cl.fx||{}); bx.save(); bx.globalCompositeOperation="source-atop"; bx.globalAlpha=cl.opacity; bx.drawImage(cc,0,0); bx.restore(); } }
+    o.save(); o.globalAlpha=l.opacity; o.globalCompositeOperation=l.blend||"source-over"; drawFx(o,base,l.fx||{},F); o.restore();
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>${defs}</defs>`+(opts.background?`<g id="Reference_still"><image href="${opts.background}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/></g>`:"")+out+`</svg>`;
+  if(artCache.size>40) artCache.clear(); artCache.set(key,out); return out;
+}
+function psdTextLayout(st,l,text,FW,FH){
+  const A=st.psdAdj, F=psdFrame(st,FW,FH), mul=l.primary?A.textSize:1, size=l.size*F.s*mul;
+  const raw=l.caps?String(text).toUpperCase():String(text);
+  const [ax,base]=F.map(l.ax,l.baseline);
+  return {size,lines:raw.split("\n"),ax,base,lh:l.lead*F.s*mul,anchor:l.align==="center"?"middle":l.align==="right"?"end":"start",font:psdFontOf(st,l),weight:l.weight,italic:l.italic,color:l.primary&&A.textColor?A.textColor:l.color,tracking:(l.primary?A.tracking:l.tracking)*size,opacity:l.opacity==null?1:l.opacity};
+}
+const psdTextFor=(l,text)=>l.primary?text:l.text;
+const textFx=(st,l)=>{ const A=st.psdAdj; return l.primary?{stroke:A.stroke.on?A.stroke:null,shadow:A.shadow.on?A.shadow:null}:{stroke:l.fx.stroke,shadow:l.fx.shadow||(l.fx.glow?Object.assign({distance:0,angle:0},l.fx.glow):null)}; };
+function psdSVG(text,st,W=1920,H=1080,opts={}){
+  const P=st.psd, F=psdFrame(st,W,H); let out="", defs="";
+  const art=renderArtwork(st,W,H).toDataURL("image/png");
+  out+=`<g id="Artwork"><image href="${art}" x="0" y="0" width="${W}" height="${H}"/></g>`;
+  P.layers.filter(l=>l.kind==="text").forEach((l,i)=>{
+    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H), fx=textFx(st,l);
+    let filt=""; if(fx.shadow){ const rad=(fx.shadow.angle||120)*Math.PI/180, d=(fx.shadow.distance||0)*F.s; defs+=`<filter id="sh${i}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${(-Math.cos(rad)*d).toFixed(1)}" dy="${(Math.sin(rad)*d).toFixed(1)}" stdDeviation="${((fx.shadow.blur||0)*F.s/2).toFixed(1)}" flood-color="${fx.shadow.color}" flood-opacity="${fx.shadow.opacity}"/></filter>`; filt=` filter="url(#sh${i})"`; }
+    const stroke=fx.stroke?` stroke="${fx.stroke.color}" stroke-width="${(fx.stroke.width*2*F.s).toFixed(1)}" stroke-linejoin="round" paint-order="stroke"`:"";
+    const tsp=T.lines.map((ln,j)=>`<tspan x="${T.ax.toFixed(1)}" y="${(T.base+j*T.lh).toFixed(1)}">${esc(ln)}</tspan>`).join("");
+    out+=`<g id="${esc(fileSafe(l.name))}${l.primary?"_main_text":""}"${filt} opacity="${T.opacity}"><text font-family="${esc(T.font)}, sans-serif" font-weight="${T.weight}"${T.italic?' font-style="italic"':""} font-size="${T.size.toFixed(1)}" letter-spacing="${T.tracking.toFixed(1)}" fill="${T.color}" text-anchor="${T.anchor}"${stroke}>${tsp}</text></g>`;
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>${defs}</defs>`+(opts.background?`<g id="Reference_still"><image href="${opts.background}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/></g>`:"")+out+`</svg>`;
 }
 function psdDraw(ctx,text,st,W,H){
-  const P=st.psd, A=st.psdAdj, F=psdFrame(st,W,H);
-  for(const l of P.layers){
-    if(l.kind==="image"){ if(l.visible===false) continue; const im=psdImgCache.get(l.src); if(!im) continue; const [x,y]=F.map(l.x,l.y); ctx.drawImage(im,x,y,l.w*F.s,l.h*F.s); continue; }
-    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H);
-    ctx.save(); ctx.font=Math.round(T.size)+"px \""+T.font+"\", sans-serif"; ctx.textAlign=T.anchor==="middle"?"center":T.anchor==="end"?"right":"left"; ctx.textBaseline="alphabetic";
+  const F=psdFrame(st,W,H); ctx.drawImage(renderArtwork(st,W,H),0,0);
+  for(const l of st.psd.layers.filter(l=>l.kind==="text")){
+    const T=psdTextLayout(st,l,psdTextFor(l,text),W,H), fx=textFx(st,l);
+    ctx.save(); ctx.globalAlpha=T.opacity; ctx.font=(T.italic?"italic ":"")+T.weight+" "+Math.round(T.size)+"px \""+T.font+"\", sans-serif"; ctx.textAlign=T.anchor==="middle"?"center":T.anchor==="end"?"right":"left"; ctx.textBaseline="alphabetic";
     if("letterSpacing" in ctx) ctx.letterSpacing=T.tracking.toFixed(1)+"px";
-    if(l.primary&&A.shadow.on){ const rad=(A.shadow.angle||120)*Math.PI/180, d=A.shadow.distance*F.s; const n=parseInt(A.shadow.color.slice(1),16);
-      ctx.shadowColor=`rgba(${n>>16&255},${n>>8&255},${n&255},${A.shadow.opacity})`; ctx.shadowBlur=A.shadow.blur*F.s; ctx.shadowOffsetX=-Math.cos(rad)*d; ctx.shadowOffsetY=Math.sin(rad)*d; }
-    T.lines.forEach((ln,i)=>{ const y=T.top+T.size*0.82+i*T.lh;
-      if(l.primary&&A.stroke.on){ ctx.lineWidth=A.stroke.width*2*F.s; ctx.lineJoin="round"; ctx.strokeStyle=A.stroke.color; ctx.strokeText(ln,T.ax,y); ctx.shadowColor="transparent"; }
+    if(fx.shadow){ const rad=(fx.shadow.angle||120)*Math.PI/180, d=(fx.shadow.distance||0)*F.s, n=parseInt(fx.shadow.color.slice(1),16); ctx.shadowColor=`rgba(${n>>16&255},${n>>8&255},${n&255},${fx.shadow.opacity})`; ctx.shadowBlur=(fx.shadow.blur||0)*F.s; ctx.shadowOffsetX=-Math.cos(rad)*d; ctx.shadowOffsetY=Math.sin(rad)*d; }
+    T.lines.forEach((ln,j)=>{ const y=T.base+j*T.lh;
+      if(fx.stroke){ ctx.lineWidth=fx.stroke.width*2*F.s; ctx.lineJoin="round"; ctx.strokeStyle=fx.stroke.color; ctx.strokeText(ln,T.ax,y); ctx.shadowColor="transparent"; }
       ctx.fillStyle=T.color; ctx.fillText(ln,T.ax,y); });
     ctx.restore();
   }
 }
 function psdAE(items,st){
-  const P=st.psd, A=st.psdAdj, F=psdFrame(st,1920,1080);
+  const A=st.psdAdj, F=psdFrame(st,1920,1080);
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
-  const imgs=P.layers.filter(l=>l.kind==="image"&&l.visible!==false).map(l=>{ const [x,y]=F.map(l.x,l.y); return `{file:${JSON.stringify("psd_layers/"+fileSafe(l.name)+".png")},name:${JSON.stringify(l.name)},cx:${(x+l.w*F.s/2).toFixed(1)},cy:${(y+l.h*F.s/2).toFixed(1)},scale:${(100*F.s*(P.W>2400?P.W/2400:1)).toFixed(2)}}`; }).join(",");
-  const texts=P.layers.filter(l=>l.kind==="text");
-  const cards=items.map(it=>`{name:${JSON.stringify(it.name)},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(st,l,psdTextFor(l,it.text),1920,1080);
-    return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(T.font.replace(/\s+/g,""))},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${(T.top+T.size*0.82).toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary}}`; }).join(",")}]}`).join(",\n  ");
-  return `// Tech Script Generator — builds one After Effects comp per on-screen text card from your PSD template (${P.name}).
-// File > Scripts > Run Script File… Keep this file next to the "psd_layers" and "stills" folders (one level up).
+  const texts=st.psd.layers.filter(l=>l.kind==="text");
+  const cards=items.map(it=>`{name:${JSON.stringify(it.name)},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(st,l,psdTextFor(l,it.text),1920,1080), fx=textFx(st,l);
+    return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(l.primary&&A.font?A.font.replace(/\s+/g,""):l.ps)},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${T.base.toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary},opacity:${Math.round(T.opacity*100)},stroke:${fx.stroke?`{w:${(fx.stroke.width*F.s).toFixed(1)},c:${rgb(fx.stroke.color)}}`:"null"},shadow:${fx.shadow?`{c:${rgb(fx.shadow.color)},o:${Math.round(fx.shadow.opacity*255)},d:${((fx.shadow.distance||0)*F.s).toFixed(1)},a:${fx.shadow.angle||120},s:${((fx.shadow.blur||0)*F.s).toFixed(1)}}`:"null"}}`; }).join(",")}]}`).join(",\n  ");
+  return `// Tech Script Generator — one After Effects comp per on-screen text card, rebuilt from your PSD template (${st.psd.name}).
+// File > Scripts > Run Script File… Keep this file inside "after_effects", next to "psd_layers" and "stills".
+// Fonts use the PSD's PostScript names — install them first so the text layers keep the right font.
 (function(){
 app.beginUndoGroup("Tech Script supers (PSD)");
 var root=File($.fileName).parent.parent;
-var IMGS=[${imgs}];
-var FX={stroke:${!!A.stroke.on},strokeW:${(A.stroke.width*F.s).toFixed(1)},strokeC:${rgb(A.stroke.color)},shadow:${!!A.shadow.on},shC:${rgb(A.shadow.color)},shO:${Math.round(A.shadow.opacity*255)},shD:${(A.shadow.distance*F.s).toFixed(1)},shA:${A.shadow.angle||120},shS:${(A.shadow.blur*F.s).toFixed(1)}};
 var CARDS=[
   ${cards}
 ];
-var folder=app.project.items.addFolder("Tech Script supers");
-var footage={};
+var folder=app.project.items.addFolder("Tech Script supers"), footage={};
 function imp(rel){ if(footage[rel]) return footage[rel]; var f=new File(root.fsName+"/"+rel); if(!f.exists) return null; var it=app.project.importFile(new ImportOptions(f)); it.parentFolder=folder; footage[rel]=it; return it; }
 for(var i=0;i<CARDS.length;i++){
   var c=CARDS[i], comp=app.project.items.addComp(c.name,1920,1080,1,5,30); comp.parentFolder=folder;
   if(c.still){ var sf=imp(c.still); if(sf){ var bg=comp.layers.add(sf); bg.name="Reference still (guide)"; bg.guideLayer=true; var s=Math.max(1920/sf.width,1080/sf.height)*100; bg.property("Scale").setValue([s,s]); } }
-  for(var k=0;k<IMGS.length;k++){ var im=imp(IMGS[k].file); if(!im) continue; var L=comp.layers.add(im); L.name=IMGS[k].name; L.property("Position").setValue([IMGS[k].cx,IMGS[k].cy]); L.property("Scale").setValue([IMGS[k].scale,IMGS[k].scale]); }
+  var art=imp("psd_layers/artwork.png"); if(art){ var A=comp.layers.add(art); A.name="Artwork"; }
   for(var t=0;t<c.texts.length;t++){ var T=c.texts[t], tl=comp.layers.addText(T.text); tl.name=T.name+(T.main?" (main)":"");
     var d=tl.property("Source Text").value; try{ d.font=T.font; }catch(e){}
     d.fontSize=T.size; d.fillColor=T.color; d.applyFill=true;
-    if(T.main&&FX.stroke){ d.applyStroke=true; d.strokeColor=FX.strokeC; d.strokeWidth=FX.strokeW*2; d.strokeOverFill=false; } else d.applyStroke=false;
+    if(T.stroke){ d.applyStroke=true; d.strokeColor=T.stroke.c; d.strokeWidth=T.stroke.w*2; d.strokeOverFill=false; } else d.applyStroke=false;
     d.justification=T.just==="center"?ParagraphJustification.CENTER_JUSTIFY:T.just==="right"?ParagraphJustification.RIGHT_JUSTIFY:ParagraphJustification.LEFT_JUSTIFY;
-    tl.property("Source Text").setValue(d); tl.property("Position").setValue([T.x,T.y]);
-    if(T.main&&FX.shadow){ var ds=tl.property("Effects").addProperty("ADBE Drop Shadow"); ds.property("Shadow Color").setValue(FX.shC); ds.property("Opacity").setValue(FX.shO); ds.property("Direction").setValue((FX.shA+90)%360); ds.property("Distance").setValue(FX.shD); ds.property("Softness").setValue(FX.shS); }
+    tl.property("Source Text").setValue(d); tl.property("Position").setValue([T.x,T.y]); tl.property("Opacity").setValue(T.opacity);
+    if(T.shadow){ var ds=tl.property("Effects").addProperty("ADBE Drop Shadow"); ds.property("Shadow Color").setValue(T.shadow.c); ds.property("Opacity").setValue(T.shadow.o); ds.property("Direction").setValue((T.shadow.a+90)%360); ds.property("Distance").setValue(T.shadow.d); ds.property("Softness").setValue(T.shadow.s); }
   }
 }
 app.endUndoGroup();
@@ -1745,32 +1830,60 @@ alert("Built "+CARDS.length+" super comps in the 'Tech Script supers' folder.");
 })();
 `;
 }
-/* Supers step UI for PSD mode */
+/* Fallback for flattened PSDs or plain images: the AI looks at the design and sets the simple designer to match it. */
+async function matchLookFromImage(dataUrl,btn,msg){
+  btn.disabled=true; msg.textContent="Matching the look…"; msg.className="note";
+  try{
+    const blob=await (await fetch(dataUrl)).blob();
+    const out=await SAMPLE.json(`Answer with valid JSON only.\nThe image is a lower-third / on-screen text design for a game trailer. Recreate its look as closely as possible with these controls. Pick the closest font from this list only: ${FONT_CHOICES.join(", ")}. Colours as #RRGGBB taken from the image. position = where the text sits in a 16:9 frame.\nReturn ONLY JSON: {"font":"","weight":700,"upper":true,"tracking":0.04,"size":84,"text":"#RRGGBB","plate":"${PLATES.join("|")}","plateColor":"#RRGGBB","plateOpacity":0.9,"accent":"#RRGGBB","position":"${POSITIONS.join("|")}","shadow":true,"why":"what you matched, one sentence"}`,{images:[blob],modelTier:"default",cache:false});
+    const st=sty(); st.mode="design";
+    if(FONT_CHOICES.includes(out.font)) st.font=out.font;
+    const hexOk=v=>/^#[0-9a-f]{6}$/i.test(v||""); ["text","plateColor","accent"].forEach(k=>{ if(hexOk(out[k])) st[k]=out[k].toUpperCase(); });
+    if(PLATES.includes(out.plate)) st.plate=out.plate; if(POSITIONS.includes(out.position)) st.position=out.position;
+    ["size","tracking","plateOpacity","weight"].forEach(k=>{ if(typeof out[k]==="number"&&isFinite(out[k])) st[k]=out[k]; });
+    st.size=Math.min(160,Math.max(36,st.size)); if(typeof out.upper==="boolean") st.upper=out.upper; if(typeof out.shadow==="boolean") st.shadow=out.shadow;
+    st.why="Matched from your PSD: "+(out.why||""); save(); render();
+  }catch(e){ msg.textContent="Couldn't match it: "+((e&&e.message)||e); msg.className="err"; btn.disabled=false; }
+}
 function psdPanel(refresh){
   const st=sty(), A=st.psdAdj, P=st.psd;
-  const up=h("input",{type:"file",accept:".psd,image/vnd.adobe.photoshop",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; msg.textContent="Reading "+f.name+"…"; msg.className="note"; try{ await importPSD(f); render(); }catch(err){ msg.textContent=(err&&err.message)||"Couldn't read that PSD."; msg.className="err"; } }});
-  const fontUp=h("input",{type:"file",accept:".otf,.ttf,.woff,.woff2",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }); const name=f.name.replace(/\.[^.]+$/,""); st.psdFont={name,data}; A.font=name; save(); await ensurePsdAssets(st); render(); }});
   const msg=h("p",{class:"note"});
-  if(!P) return h("div",{class:"panel"},h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:()=>up.click()},"Upload PSD")),up,msg,
-    h("p",{class:"note"},"Keep the text as live type layers. Artwork layers are kept as they are."));
+  const up=h("input",{type:"file",accept:".psd,.psb,image/vnd.adobe.photoshop",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; msg.textContent="Reading "+f.name+"…"; msg.className="note"; try{ await importPSD(f); await ensurePsdAssets(sty()); render(); }catch(err){ msg.textContent=(err&&err.message)||"Couldn't read that PSD."; msg.className="err";
+    if(err&&err.noText&&err.preview&&SAMPLE){ msg.after(h("div",{class:"row",style:"margin-top:8px"},h("img",{src:err.preview,alt:"",style:"width:220px;border-radius:8px"}),h("button",{class:"btn primary small",onclick:e2=>matchLookFromImage(err.preview,e2.currentTarget,msg)},"Match this look with AI"))); } } }});
+  const fontUp=h("input",{type:"file",accept:".otf,.ttf,.woff,.woff2",class:"hidden",onchange:async e=>{ const f=e.target.files[0]; if(!f) return; const data=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }); const name=f.name.replace(/\.[^.]+$/,""); st.psdFont={name,data}; A.font=name; save(); await ensurePsdAssets(st); render(); }});
+  if(!P) return h("div",{class:"panel"},h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"spacer"}),h("button",{class:"btn primary",onclick:()=>up.click()},"Upload PSD")),up,msg,h("p",{class:"note"},"Text must be live type layers."));
   const set=(path,v)=>{ const ks=path.split("."); let o=A; while(ks.length>1) o=o[ks.shift()]; o[ks[0]]=v; save(); refresh(); };
-  const range=(label,path,min,max,step)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A); const i=h("input",{type:"range",min,max,step,value:cur}); i.addEventListener("input",e=>set(path,Number(e.target.value))); return h("label",{class:"f"},label,i); };
-  const color=(label,path)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A)||"#FFFFFF"; const i=h("input",{type:"color",value:cur,style:"height:36px;padding:2px"}); i.addEventListener("input",e=>set(path,e.target.value.toUpperCase())); return h("label",{class:"f"},label,i); };
-  const toggle=(label,path)=>{ const cur=path.split(".").reduce((o,k)=>o[k],A); const c=h("input",{type:"checkbox",checked:!!cur}); c.addEventListener("change",e=>set(path,e.target.checked)); return h("label",{class:"row",style:"font-size:14px;font-weight:600"},c,label); };
+  const val=path=>path.split(".").reduce((o,k)=>o[k],A);
+  const range=(label,path,min,max,step)=>{ const i=h("input",{type:"range",min,max,step,value:val(path)}); i.addEventListener("input",e=>set(path,Number(e.target.value))); return h("label",{class:"f"},label,i); };
+  const color=(label,path,fallback)=>{ const i=h("input",{type:"color",value:val(path)||fallback||"#FFFFFF",style:"height:36px;padding:2px"}); i.addEventListener("input",e=>set(path,e.target.value.toUpperCase())); return h("label",{class:"f"},label,i); };
+  const toggle=(label,path)=>{ const c=h("input",{type:"checkbox",checked:!!val(path)}); c.addEventListener("change",e=>set(path,e.target.checked)); return h("label",{class:"row",style:"font-size:14px;font-weight:600"},c,label); };
   const texts=P.layers.filter(l=>l.kind==="text"), mainL=texts.find(l=>l.primary);
+  const missing=texts.filter(l=>!fontAvailable(st,l)).map(l=>psdFontOf(st,l));
   const fonts=[...new Set([mainL.font,...(st.psdFont?[st.psdFont.name]:[]),...FONT_CHOICES])];
   const fontSel=h("select",{onchange:async e=>{ A.font=e.target.value===mainL.font?"":e.target.value; save(); await ensurePsdAssets(st); refresh(); }},fonts.map(f=>h("option",{value:f,selected:(A.font||mainL.font)===f},f+(f===mainL.font?" (from PSD)":""))));
+  // side-by-side: Photoshop's own render vs the rebuild, so mismatches are obvious
+  const cmp=h("div",{style:"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"});
+  const tile=(label,node)=>h("div",null,h("div",{class:"note",style:"margin-bottom:4px"},label),h("div",{style:"position:relative;aspect-ratio:"+P.W+"/"+P.H+";background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0/16px 16px;border-radius:8px;overflow:hidden"},node));
+  if(P.preview){
+    const rb=document.createElement("canvas"); const saved={dx:A.dx,dy:A.dy,scale:A.scale,textSize:A.textSize};
+    const W=960, H=Math.round(960*P.H/P.W); rb.width=W; rb.height=H; rb.style.cssText="width:100%;height:100%;display:block";
+    // render the template untouched (no moves) for a fair comparison
+    const tmp=Object.assign({},st,{psd:Object.assign({},P,{fullFrame:true,W:P.W,H:P.H}),psdAdj:Object.assign({},A,{dx:0,dy:0,scale:1,textSize:1})});
+    const k=1920/W; try{ const c2=document.createElement("canvas"); c2.width=1920; c2.height=Math.round(1920*P.H/P.W); psdDraw(c2.getContext("2d"),mainL.text,tmp,1920,c2.height); rb.getContext("2d").drawImage(c2,0,0,W,H); }catch(e){}
+    cmp.append(tile("In Photoshop",h("img",{src:P.preview,alt:"",style:"width:100%;height:100%;display:block"})),tile("Rebuilt here",rb));
+  }
   return h("div",{class:"panel"},
     h("div",{class:"row"},h("b",null,"PSD template"),h("span",{class:"counter"},P.name),h("span",{class:"spacer"}),h("button",{class:"btn small",onclick:()=>up.click()},"Replace"),h("button",{class:"btn small ghost",onclick:()=>{ st.mode="design"; save(); render(); }},"Use simple design")),up,fontUp,msg,
-    h("div",{class:"row",style:"margin-top:8px;gap:6px"},h("span",{class:"note"},"Main text:"),h("select",{onchange:e=>{ texts.forEach(l=>l.primary=l.name===e.target.value); save(); refresh(); }},texts.map(l=>h("option",{value:l.name,selected:l.primary},l.name))),
-      P.layers.filter(l=>l.kind==="image").map(l=>{ const c=h("input",{type:"checkbox",checked:l.visible!==false}); c.addEventListener("change",e=>{ l.visible=e.target.checked; save(); refresh(); }); return h("label",{class:"row",style:"font-size:13px;gap:4px"},c,l.name); })),
+    cmp,
+    (P.warnings||[]).length||missing.length?h("div",{class:"note",style:"margin-top:10px;color:var(--warn)"},[missing.length?"Font not installed: "+[...new Set(missing)].join(", ")+" — upload the font file below for an exact match.":null,(P.warnings||[]).length?"Notes: "+P.warnings.join(", ")+".":null].filter(Boolean).join(" ")):null,
+    h("div",{class:"row",style:"margin-top:10px;gap:6px"},h("span",{class:"note"},"Retype layer:"),h("select",{onchange:e=>{ texts.forEach(l=>l.primary=l.name===e.target.value); save(); render(); }},texts.map(l=>h("option",{value:l.name,selected:l.primary},l.name+" — “"+l.text.slice(0,24)+"”")))),
     h("div",{class:"grid2",style:"margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))"},
       range("Move left / right","dx",-1920,1920,2), range("Move up / down","dy",-1080,1080,2), range("Overall size","scale",0.3,2.5,0.01), range("Text size","textSize",0.3,2.5,0.01),
       h("label",{class:"f"},"Font",fontSel,h("button",{class:"btn ghost small",style:"align-self:flex-start;padding:2px 0",onclick:()=>fontUp.click()},"Upload font file")),
-      color("Text colour","textColor"), range("Letter spacing","tracking",-0.05,0.3,0.005),
+      color("Text colour","textColor",mainL.color), range("Letter spacing","tracking",-0.05,0.3,0.005),
       h("div",{class:"f"},"Stroke",toggle("On","stroke.on")), range("Stroke width","stroke.width",0,20,0.5), color("Stroke colour","stroke.color"),
       h("div",{class:"f"},"Drop shadow",toggle("On","shadow.on")), color("Shadow colour","shadow.color"), range("Shadow opacity","shadow.opacity",0,1,0.05), range("Shadow distance","shadow.distance",0,40,1), range("Shadow angle","shadow.angle",0,360,5), range("Shadow blur","shadow.blur",0,40,1)),
-    h("p",{class:"note",style:"margin-top:8px"},"Tip: drag the text on any card below to move it. Retype each card's text right under its preview."));
+    h("p",{class:"note",style:"margin-top:8px"},"Drag a card below to move it. Retype under each card."));
 }
 
 const isPsd=st=>st&&st.mode==="psd"&&st.psd;
