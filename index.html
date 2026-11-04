@@ -1354,6 +1354,7 @@ function stepExport(){
       gmsg,dmsg,
       ei.lastUrl?h("p",{class:"okc"},"Created. ",h("a",{href:ei.lastUrl,target:"_blank",rel:"noopener"},"Open the Google Sheet")):null
     ),
+    shareMessagePanel(),
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(6)},"Back"),h("span",{class:"spacer"}),h("button",{class:"btn",onclick:saveProjectFile},"Save project file"),h("button",{class:"btn",onclick:openProjectFile},"Open project file"),h("button",{class:"btn ghost",onclick:newScript},"Start a new tech script"))
   ];
 }
@@ -2383,6 +2384,47 @@ async function loadProject(id,version){
     S.cloud={id:j.id,name:j.name,savedAt:j.savedAt||new Date().toISOString(),dirty:!!version,error:""};
     FILES.clear(); if($("#dlg").open) $("#dlg").close(); save(true); go(typeof d.step==="number"?d.step:0);
   }catch(e){ alert("Couldn't open it: "+((e&&e.message)||e)); }
+}
+
+
+/* Ready-to-paste Discord messages (Export step): one for the marketing team, one for the developers. */
+const LONGNAME={"Release date announcement":"RDA (release date announcement)","Launch trailer":"launch","Steam teaser":"teaser","Console trailer":"console","Social video":"social","Event trailer":"event","Trailer":"gameplay"};
+function trailerPhrase(){ const names=cuts().map(c=>c==="Other"?(S.project.videoTypeOther||"trailer"):(LONGNAME[c]||cutLabel(c)));
+  const list=names.length>1?names.slice(0,-1).join(", ")+" and "+names[names.length-1]:names[0]; return list+" trailer"+(names.length>1?"s":""); }
+function shareMessageText(kind){
+  const p=S.project, sh=shr(), ei=S.exportInfo||{}, game=p.game||"the game";
+  if(kind==="dev"){
+    const L=["Hi team, I hope you're doing well! :blush: I'm sharing the capture brief for the "+game+" "+trailerPhrase()+" with you. It has every shot we need, how to record it, where to upload your footage, and music for you to choose.",""];
+    L.push("- **Capture brief:** "+(sh.briefUrl||"[publish the developer page first]"),"");
+    L.push("You can also leave suggestions directly on each shot in the link, which will help us quickly identify the shots you're referring to."+(sh.deadline?" If possible, we'd really appreciate the footage by **"+sh.deadline+"**.":""));
+    L.push("","Thank you! :blobcat-coffee:");
+    return L.join("\n");
+  }
+  const L=["Hi team! :blush: The **"+game+"** tech script for the "+trailerPhrase()+" is now ready for your review and approval.",""];
+  L.push("- **Tech script (Google Sheet):** "+(ei.lastUrl||"[create the Google Sheet first]"));
+  L.push("- **Developer page:** "+(sh.briefUrl||"[publish the developer page first]"),"");
+  L.push("Let me know if you have any feedback, or if it's good to go! Thank you! :blobcat-coffee:");
+  return L.join("\n");
+}
+function shareMessagePanel(){
+  const sh=shr(), ei=S.exportInfo||{}; if(!sh.msg) sh.msg={};
+  const kind=sh.msgKind||"marketing";
+  const ta=h("textarea",{rows:9,style:"font-family:inherit;line-height:1.5","aria-label":"Message to share"});
+  ta.value=sh.msg[kind]||shareMessageText(kind);
+  ta.addEventListener("input",()=>{ sh.msg[kind]=ta.value; save(); });
+  const msg=h("span",{class:"note"});
+  const need=kind==="dev"?[!sh.briefUrl?"publish the developer page (Share step)":null]:[!ei.lastUrl?"create the Google Sheet (above)":null,!sh.briefUrl?"publish the developer page (Share step)":null];
+  const missing=need.filter(Boolean);
+  const tab=(k,label)=>h("button",{role:"tab","aria-selected":kind===k?"true":"false",class:"btn small",style:kind===k?"background:var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.12)":"background:transparent",onclick:()=>{ sh.msgKind=k; save(); render(); }},label);
+  return h("div",{class:"panel",style:"margin-top:16px"},
+    h("div",{class:"row"},h("b",null,"Discord message"),
+      h("div",{role:"tablist",style:"display:inline-flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px"},tab("marketing","Marketing team"),tab("dev","Developers")),
+      h("span",{class:"spacer"}),
+      h("button",{class:"btn small",onclick:()=>{ delete sh.msg[kind]; save(); ta.value=shareMessageText(kind); msg.textContent="Refreshed with the latest links."; msg.className="note"; }},"Refresh"),
+      h("button",{class:"btn primary small",onclick:async()=>{ try{ await navigator.clipboard.writeText(ta.value); }catch(e){ ta.select(); document.execCommand&&document.execCommand("copy"); } msg.textContent="Copied — paste it in Discord."; msg.className="okc"; }},"Copy")),
+    h("p",{class:"note",style:"margin-top:6px"},kind==="dev"?"For the developers — just the developer page link.":"For marketing — the Google Sheet and the developer page, ready for review and approval."),
+    missing.length?h("p",{class:"note",style:"color:var(--warn)"},"To include the links: "+missing.join(" and ")+", then Refresh."):null,
+    h("div",{style:"margin-top:8px"},ta),msg);
 }
 
 /* ---------- render ---------- */
