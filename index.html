@@ -1416,7 +1416,7 @@ const hasSuper=s=>s.superType&&s.superType!=="None"&&String(s.superText||"").tri
 /* Layout in a W×H frame (1920×1080 master). Returns geometry shared by SVG, canvas and After Effects. */
 const MC=document.createElement("canvas").getContext("2d");
 function layoutSuper(text,st,W,H){
-  const k=W/1920, fs=Math.round(st.size*k), fw=fontWeight(st);
+  const k=W/1920, fs=Math.round(st.size*k*(st._sc||1)), fw=fontWeight(st);
   MC.font=fw+" "+fs+"px \""+st.font+"\", sans-serif";
   const trackPx=st.tracking*fs;
   const lines=wrapLines(text,W*0.78,trackPx);
@@ -1428,6 +1428,7 @@ function layoutSuper(text,st,W,H){
   const pos=st.position;
   if(pos.endsWith("center")){ x=(W-boxW)/2; anchor="middle"; } else x=m;
   if(pos.startsWith("lower")) y=H-m-boxH; else if(pos.startsWith("upper")) y=m; else y=(H-boxH)/2;
+  x+=(st._dx||0)*k; y+=(st._dy||0)*k;
   return {fs,fw,lh,lines,widths,textW,textH,padX,padY,box:{x,y,w:boxW,h:boxH},anchor,trackPx,k};
   function wrapLines(t,maxW,tp){ const words=t.split(/\s+/); const out=[]; let cur="";
     for(const w of words){ const tryL=cur?cur+" "+w:w; const width=MC.measureText(tryL).width+tp*tryL.length; if(width>maxW&&cur){ out.push(cur); cur=w; } else cur=tryL; }
@@ -1484,7 +1485,7 @@ async function overlayPNG(s,W=1920,H=1080){ const st=sty(); await ensureFont(st)
 function aePostScript(st){ if(st.customFont&&st.font===st.customFont.name&&st.customFont.ps) return st.customFont.ps; const base=st.font.replace(/\s+/g,""); return SINGLE_WEIGHT.has(st.font)?base+"-Regular":base+(fontWeight(st)>=700?"-Bold":"-Regular"); }
 function designAE(items,st){
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
-  const comps=items.map(it=>{ const L=layoutSuper(it.text,st,1920,1080), b=L.box;
+  const comps=items.map(it=>{ const L=layoutSuper(it.text,it.st||st,1920,1080), b=L.box;
     return `{name:${JSON.stringify(it.name)},text:${JSON.stringify(L.lines.join("\r"))},still:${JSON.stringify(it.still||"")},bx:${b.x.toFixed(1)},by:${b.y.toFixed(1)},bw:${b.w.toFixed(1)},bh:${b.h.toFixed(1)},tx:${(L.anchor==="middle"?b.x+b.w/2:b.x+L.padX).toFixed(1)},ty:${(b.y+L.padY+L.fs*0.86).toFixed(1)}}`; }).join(",\n  ");
   return `// Tech Script Generator — builds one After Effects comp per on-screen text card.
 // File > Scripts > Run Script File… and pick this file. Keep it in the same folder as the "stills" folder.
@@ -1538,11 +1539,13 @@ async function downloadSupersZip(btn,msg){
     for(const it of items){
       const nm=it.key+"_"+fileSafe(it.text);
       if(it.s.superArt){ z.file("edited_in_photoshop/"+nm+".png",await overlayPNG(it.s)); z.file("png_transparent/"+nm+".png",await overlayPNG(it.s)); continue; }
-      z.file("svg/"+nm+".svg",superSVG(it.text,st,1920,1080,{embedFontLink:true}));
+      const cst=cardStyle(it.s); it.st=cst;
+      z.file("svg/"+nm+".svg",superSVG(it.text,cst,1920,1080,{embedFontLink:true}));
+      if(isPsd(st)){ it.art="psd_layers/artwork_"+it.key+".png"; z.file(it.art,renderArtwork(cst,1920,1080).toDataURL("image/png").split(",")[1],{base64:true}); }
       z.file("png_transparent/"+nm+".png",await overlayPNG(it.s));
       const f=it.s.selected&&it.s.selected!=="none"?frameById(it.s.selected):null;
       if(f&&f.dataUrl){
-        z.file("svg_with_reference_still/"+nm+".svg",superSVG(it.text,st,1920,1080,{embedFontLink:true,background:f.dataUrl}));
+        z.file("svg_with_reference_still/"+nm+".svg",superSVG(it.text,cst,1920,1080,{embedFontLink:true,background:f.dataUrl}));
         z.file("stills/"+nm+".jpg",f.dataUrl.split(",")[1],{base64:true});
         const comp=await compositeStill(it.s,1920); if(comp) z.file("stills_with_supers/"+nm+".jpg",comp.split(",")[1],{base64:true});
         it.still="stills/"+nm+".jpg";
@@ -1550,7 +1553,7 @@ async function downloadSupersZip(btn,msg){
     }
     if(isPsd(st)){ const art=renderArtwork(st,1920,1080); z.file("psd_layers/artwork.png",art.toDataURL("image/png").split(",")[1],{base64:true}); }
     const cf=isPsd(st)?st.psdFont:(st.customFont&&st.font===st.customFont.name?st.customFont:null); if(cf) z.file("fonts/"+(cf.file||cf.name+".otf"),cf.data.split(",")[1],{base64:true});
-    z.file("after_effects/build_supers.jsx",aeScript(items.filter(it=>!it.s.superArt).map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:""})),st));
+    z.file("after_effects/build_supers.jsx",aeScript(items.filter(it=>!it.s.superArt).map(it=>({name:it.name,text:it.text,still:it.still?"../"+it.still:"",st:it.st,art:it.art})),st));
     z.file("README.txt",`On-screen text (supers) — ${S.project.game||""}
 Font: ${st.font} (${fontWeight(st)}). Install it from Google Fonts or Adobe Fonts before opening the files.
 Colours: text ${st.text}, plate ${st.plateColor} at ${Math.round(st.plateOpacity*100)}%, accent ${st.accent}. Plate: ${st.plate}. Position: ${st.position}.
@@ -1598,20 +1601,25 @@ function stepSupers(){
       const box=h("div",{style:"position:relative;aspect-ratio:16/9;background:#08071A;border-radius:6px;overflow:hidden"});
       if(f&&f.dataUrl) box.append(h("img",{src:f.dataUrl,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
       const holder=h("div",{style:"position:absolute;inset:0"});
-      const paint=()=>{ if(it.s&&it.s.superArt){ holder.replaceChildren(h("img",{src:it.s.superArt,alt:"",style:"position:absolute;inset:0;width:100%;height:100%"})); return; } holder.innerHTML=superSVG(it.s?superText(it.s):it.text,st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); };
+      const paint=()=>{ if(it.s&&it.s.superArt){ const a=cardAdj(it.s); holder.replaceChildren(h("img",{src:it.s.superArt,alt:"",draggable:"false",style:`position:absolute;inset:0;width:100%;height:100%;transform:translate(${(a.dx||0)/19.2}%,${(a.dy||0)/10.8}%) scale(${a.scale||1})`})); return; } holder.innerHTML=superSVG(it.s?superText(it.s):it.text,it.s?cardStyle(it.s):st,1920,1080); const svg=holder.firstChild; svg.setAttribute("width","100%"); svg.setAttribute("height","100%"); };
       paint(); box.append(holder);
-      if(isPsd(st)&&!(it.s&&it.s.superArt)){ box.style.cursor="grab"; box.style.touchAction="none";
-        box.addEventListener("pointerdown",e=>{ box.setPointerCapture(e.pointerId); box.style.cursor="grabbing"; const k=1920/box.clientWidth, sx=e.clientX, sy=e.clientY, dx0=st.psdAdj.dx, dy0=st.psdAdj.dy;
-          const mv=ev=>{ st.psdAdj.dx=Math.round(dx0+(ev.clientX-sx)*k); st.psdAdj.dy=Math.round(dy0+(ev.clientY-sy)*k); paint(); };
+      if(it.s){ box.style.cursor="grab"; box.style.touchAction="none"; box.title="Drag to move this card";
+        box.addEventListener("pointerdown",e=>{ if(e.button!==0) return; box.setPointerCapture(e.pointerId); box.style.cursor="grabbing"; const k=1920/box.clientWidth, sx=e.clientX, sy=e.clientY, a0=Object.assign({dx:0,dy:0,scale:1},it.s.superAdj);
+          const mv=ev=>{ it.s.superAdj=Object.assign({},a0,{dx:Math.round(a0.dx+(ev.clientX-sx)*k),dy:Math.round(a0.dy+(ev.clientY-sy)*k)}); paint(); };
           const upf=()=>{ box.removeEventListener("pointermove",mv); box.style.cursor="grab"; save(); refresh(); };
-          box.addEventListener("pointermove",mv); box.addEventListener("pointerup",upf,{once:true}); box.addEventListener("pointercancel",upf,{once:true}); }); }
+          box.addEventListener("pointermove",mv); box.addEventListener("pointerup",upf,{once:true}); box.addEventListener("pointercancel",upf,{once:true}); });
+        box.addEventListener("wheel",e=>{ if(!e.altKey) return; e.preventDefault(); const a=Object.assign({dx:0,dy:0,scale:1},it.s.superAdj); a.scale=Math.min(3,Math.max(0.3,+(a.scale*(e.deltaY<0?1.05:0.95)).toFixed(3))); it.s.superAdj=a; paint(); clearTimeout(box._t); box._t=setTimeout(()=>{ save(); },300); },{passive:false}); }
       const retype=it.s?(()=>{ const i=h("input",{type:"text",value:it.s.superText||"",placeholder:"Type the on-screen text","aria-label":"On-screen text for "+it.key}); i.addEventListener("input",e=>{ it.s.superText=e.target.value; save(); paint(); }); return i; })():null;
+      const sizeIn=it.s?(()=>{ const a=cardAdj(it.s); const r=h("input",{type:"range",min:0.3,max:2.5,step:0.01,value:a.scale||1,style:"flex:1;min-width:80px","aria-label":"Size of "+it.key});
+        r.addEventListener("input",e=>{ it.s.superAdj=Object.assign({dx:0,dy:0,scale:1},it.s.superAdj,{scale:Number(e.target.value)}); paint(); pct.textContent=Math.round(Number(e.target.value)*100)+"%"; });
+        r.addEventListener("change",()=>save()); const pct=h("span",{class:"note",style:"min-width:38px"},Math.round((a.scale||1)*100)+"%");
+        return h("div",{class:"row",style:"margin-top:6px;gap:8px;flex-wrap:nowrap"},h("span",{class:"note"},"Size"),r,pct,isMoved(a)?h("button",{class:"btn ghost small",onclick:()=>{ it.s.superAdj=null; save(); refresh(); }},"Reset card"):null); })():null;
       const tools=it.s?h("div",{class:"row",style:"margin-top:6px;gap:6px"},
         h("button",{class:"btn small",onclick:e=>downloadCardPSD(it.s,e.currentTarget)},"Edit in Photoshop"),
         h("button",{class:"btn small",onclick:()=>uploadCardArt(it.s,()=>render())},it.s.superArt?"Replace PNG":"Upload PNG"),
         it.s.superArt?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Edited in Photoshop"):null,
         it.s.superArt?h("button",{class:"btn ghost small",onclick:()=>{ it.s.superArt=null; save(); render(); }},"Back to generated"):null):null;
-      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px;flex-wrap:nowrap"},h("b",null,it.key),it.s&&it.s.superArt?h("span",{class:"note"},"Using your PNG"):(retype||h("span",{class:"note"},"Sample — add on-screen text to shots to see them here"))),tools);
+      return h("div",{class:"panel",style:"padding:10px"},box,h("div",{class:"row",style:"margin-top:8px;font-size:13px;flex-wrap:nowrap"},h("b",null,it.key),it.s&&it.s.superArt?h("span",{class:"note"},"Using your PNG"):(retype||h("span",{class:"note"},"Sample — add on-screen text to shots to see them here"))),sizeIn,tools);
     }));
   }
   function superTextDemo(){ return st.upper?(S.project.game||"Your game").toUpperCase()+" — COMING SOON":(S.project.game||"Your game")+" — coming soon"; }
@@ -1635,7 +1643,7 @@ function stepSupers(){
       h("button",{class:"btn",onclick:e=>downloadAllCardPSDs(e.currentTarget,dmsg)},"Edit all in Photoshop"),
       h("button",{class:"btn",onclick:()=>uploadManyCardArt(dmsg)},"Upload edited cards"),
       h("button",{class:"btn primary",onclick:e=>downloadSupersZip(e.currentTarget,dmsg)},"Download (SVG · PNG · AE)")),
-    h("p",{class:"note",id:"cardsMsg"},"Photoshop round-trip: get the layered PSDs, edit, export PNGs with the same names, upload them all at once."),
+    h("p",{class:"note",id:"cardsMsg"},"Drag a card to move just that one · Size slider (or Alt + scroll) to scale it · Photoshop: get the PSDs, edit, upload the PNGs back."),
     dmsg, grid,
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(4)},"Back"),h("button",{class:"btn primary",onclick:()=>go(6)},"Continue to share"))
   ];
@@ -1826,7 +1834,7 @@ function psdAE(items,st){
   const A=st.psdAdj, F=psdFrame(st,1920,1080);
   const rgb=c=>{ const n=parseInt(String(c).slice(1),16); return "["+[(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(4)).join(",")+"]"; };
   const texts=st.psd.layers.filter(l=>l.kind==="text");
-  const cards=items.map(it=>`{name:${JSON.stringify(it.name)},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(st,l,psdTextFor(l,it.text),1920,1080), fx=textFx(st,l);
+  const cards=items.map(it=>`{name:${JSON.stringify(it.name)},art:${JSON.stringify(it.art||"psd_layers/artwork.png")},still:${JSON.stringify((it.still||"").replace(/^\.\.\//,""))},texts:[${texts.map(l=>{ const T=psdTextLayout(it.st||st,l,psdTextFor(l,it.text),1920,1080), fx=textFx(st,l);
     return `{name:${JSON.stringify(l.name)},text:${JSON.stringify(T.lines.join("\r"))},font:${JSON.stringify(l.primary&&A.font?(st.psdFont&&A.font===st.psdFont.name?st.psdFont.ps:A.font.replace(/\s+/g,"")):l.ps)},size:${T.size.toFixed(1)},color:${rgb(T.color)},x:${T.ax.toFixed(1)},y:${T.base.toFixed(1)},just:${JSON.stringify(l.align)},main:${!!l.primary},opacity:${Math.round(T.opacity*100)},stroke:${fx.stroke?`{w:${(fx.stroke.width*F.s).toFixed(1)},c:${rgb(fx.stroke.color)}}`:"null"},shadow:${fx.shadow?`{c:${rgb(fx.shadow.color)},o:${Math.round(fx.shadow.opacity*255)},d:${((fx.shadow.distance||0)*F.s).toFixed(1)},a:${fx.shadow.angle||120},s:${((fx.shadow.blur||0)*F.s).toFixed(1)}}`:"null"}}`; }).join(",")}]}`).join(",\n  ");
   return `// Tech Script Generator — one After Effects comp per on-screen text card, rebuilt from your PSD template (${st.psd.name}).
 // File > Scripts > Run Script File… Keep this file inside "after_effects", next to "psd_layers" and "stills".
@@ -1842,7 +1850,7 @@ function imp(rel){ if(footage[rel]) return footage[rel]; var f=new File(root.fsN
 for(var i=0;i<CARDS.length;i++){
   var c=CARDS[i], comp=app.project.items.addComp(c.name,1920,1080,1,5,30); comp.parentFolder=folder;
   if(c.still){ var sf=imp(c.still); if(sf){ var bg=comp.layers.add(sf); bg.name="Reference still (guide)"; bg.guideLayer=true; var s=Math.max(1920/sf.width,1080/sf.height)*100; bg.property("Scale").setValue([s,s]); } }
-  var art=imp("psd_layers/artwork.png"); if(art){ var A=comp.layers.add(art); A.name="Artwork"; }
+  var art=imp(c.art); if(art){ var A=comp.layers.add(art); A.name="Artwork"; }
   for(var t=0;t<c.texts.length;t++){ var T=c.texts[t], tl=comp.layers.addText(T.text); tl.name=T.name+(T.main?" (main)":"");
     var d=tl.property("Source Text").value; try{ d.font=T.font; }catch(e){}
     d.fontSize=T.size; d.fillColor=T.color; d.applyFill=true;
@@ -1910,7 +1918,7 @@ function psdPanel(refresh){
       color("Text colour","textColor",mainL.color), range("Letter spacing","tracking",-0.05,0.3,0.005),
       h("div",{class:"f"},"Stroke",toggle("On","stroke.on")), range("Stroke width","stroke.width",0,20,0.5), color("Stroke colour","stroke.color"),
       h("div",{class:"f"},"Drop shadow",toggle("On","shadow.on")), color("Shadow colour","shadow.color"), range("Shadow opacity","shadow.opacity",0,1,0.05), range("Shadow distance","shadow.distance",0,40,1), range("Shadow angle","shadow.angle",0,360,5), range("Shadow blur","shadow.blur",0,40,1)),
-    h("p",{class:"note",style:"margin-top:8px"},"Drag a card below to move it. Retype under each card."));
+    h("p",{class:"note",style:"margin-top:8px"},"These move and size every card. Drag or resize a single card below to adjust just that one."));
 }
 
 /* ===================== CUSTOM FONTS + PHOTOSHOP ROUND-TRIP ===================== */
@@ -1943,7 +1951,9 @@ function fontUploader(onDone){
 /* Cards edited in Photoshop: a PNG (or PSD) that replaces the generated overlay for that shot. */
 const artImg=new Map();
 async function prepCard(s){ if(s&&s.superArt&&!artImg.has(s.superArt)){ try{ artImg.set(s.superArt,await loadImg(s.superArt)); }catch(e){} } }
-function drawCard(ctx,s,W,H){ if(s.superArt&&artImg.get(s.superArt)) ctx.drawImage(artImg.get(s.superArt),0,0,W,H); else drawSuper(ctx,superText(s),sty(),W,H); }
+function drawCard(ctx,s,W,H){
+  if(s.superArt&&artImg.get(s.superArt)){ const a=cardAdj(s), k=W/1920, sc=a.scale||1; ctx.save(); ctx.translate(W/2+(a.dx||0)*k,H/2+(a.dy||0)*k); ctx.scale(sc,sc); ctx.drawImage(artImg.get(s.superArt),-W/2,-H/2,W,H); ctx.restore(); }
+  else drawSuper(ctx,superText(s),cardStyle(s),W,H); }
 const hasCard=s=>!!(s&&(s.superArt||hasSuper(s)));
 async function stillCanvas(s,W=1920,H=1080){
   const f=s.selected&&s.selected!=="none"?frameById(s.selected):null; if(!f||!f.dataUrl) return null;
@@ -1963,7 +1973,7 @@ function psText(name,text,font,size,color,x,baseline,just,tracking,fx){
 }
 /* One layered PSD per card: reference still (bottom, to hide before export) + artwork + live, editable text layers. */
 async function cardPSD(s){
-  await loadPsdLib(); const st=sty(), W=1920, H=1080, text=superText(s), kids=[];
+  await loadPsdLib(); const st=cardStyle(s), W=1920, H=1080, text=superText(s), kids=[];
   const still=await stillCanvas(s,W,H); if(still) kids.push({name:"Reference still — hide before exporting PNG",left:0,top:0,right:W,bottom:H,canvas:still});
   await ensureFont(st);
   if(isPsd(st)){
@@ -2027,6 +2037,18 @@ function uploadManyCardArt(msg){
     setTimeout(()=>{ const m=document.querySelector("#cardsMsg"); if(m){ m.textContent="Updated "+done+" card(s)."+(miss.length?" Not matched: "+miss.join("; "):""); m.className=miss.length?"err":"okc"; } },50);
   }});
   document.body.append(inp); inp.click();
+}
+
+/* Per-card position and size, layered on top of the shared look. */
+const cardAdj=s=>(s&&s.superAdj)||{dx:0,dy:0,scale:1};
+const isMoved=a=>!!(a&&(a.dx||a.dy||(a.scale||1)!==1));
+function psdBounds(st){ const ls=st.psd.layers; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; ls.forEach(l=>{ if(l.kind==="image"&&l.visible===false) return; x0=Math.min(x0,l.x); y0=Math.min(y0,l.y); x1=Math.max(x1,l.x+l.w); y1=Math.max(y1,l.y+l.h); }); return {cx:(x0+x1)/2,cy:(y0+y1)/2}; }
+function cardStyle(s){
+  const st=sty(), a=cardAdj(s); if(!isMoved(a)) return st;
+  const sc=a.scale||1;
+  if(isPsd(st)){ const A=st.psdAdj, s0=(st.psd.fullFrame?1920/st.psd.W:1)*A.scale, c=psdBounds(st);
+    return Object.assign({},st,{psdAdj:Object.assign({},A,{dx:A.dx+a.dx+c.cx*s0*(1-sc),dy:A.dy+a.dy+c.cy*s0*(1-sc),scale:A.scale*sc})}); }
+  return Object.assign({},st,{_dx:a.dx||0,_dy:a.dy||0,_sc:sc});
 }
 
 const isPsd=st=>st&&st.mode==="psd"&&st.psd;
