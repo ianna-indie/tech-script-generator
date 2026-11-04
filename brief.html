@@ -106,6 +106,23 @@ ul.check{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:co
 ul.check li{display:flex;gap:10px;align-items:flex-start;color:var(--fg)}
 ul.check input{width:18px;height:18px;margin-top:2px;accent-color:var(--accent)}
 section{scroll-margin-top:16px}
+
+.multinote{background:var(--accent);color:var(--accent-fg);font-weight:600;padding:12px 16px;border-radius:14px;margin:-4px 0 14px}
+.scripttabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.scripttab{appearance:none;border:2px solid transparent;background:var(--card);border-radius:18px;padding:16px 18px;text-align:left;cursor:pointer;display:flex;gap:14px;align-items:center;color:var(--fg);font:inherit;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.scripttab .n{width:40px;height:40px;border-radius:50%;background:var(--fill);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex:none}
+.scripttab .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.scripttab .t b{font-size:20px;letter-spacing:-.01em}
+.scripttab .t span{font-size:14px;color:var(--muted)}
+.scripttab .t .c{color:var(--fg);font-weight:600}
+.scripttab[aria-selected="true"]{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
+.scripttab[aria-selected="true"] .n{background:var(--accent);color:var(--accent-fg)}
+.stickytabs{position:sticky;top:0;z-index:4;display:flex;gap:6px;padding:10px 0;margin-bottom:6px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px)}
+.stickytabs button{appearance:none;border:0;border-radius:999px;padding:8px 16px;font:600 15px var(--sans);background:var(--fill);color:var(--fg);cursor:pointer}
+.stickytabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.scripttitle{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:19px;margin-top:4px}
+.scripttitle .of{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:4px 10px;border-radius:999px}
+.nextscript{margin-top:18px;width:100%;justify-content:center;padding:16px;font-size:17px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -194,14 +211,32 @@ function render(){
   const total=cuts.reduce((n,c)=>n+c.shots.length,0), need=cuts.reduce((n,c)=>n+c.shots.filter(x=>x.needsCapture).length,0);
   app.append(h("header",null,h("div",{class:"brand"},h("i"),"indie.io · trailer tech script"),h("h1",null,B.game),
     B.message?h("p",{class:"sub"},B.message):h("p",{class:"sub"},"Every shot we need for the trailer"+(cuts.length>1?"s":"")+", in order. Each card shows what to record and how it will look."),
-    h("div",{class:"pills"},cuts.map(c=>h("span",null,c.label+(c.duration?" · "+c.duration:""))),h("span",null,total+" shots"+(need?" · "+need+" need new footage":"")),B.deadline?h("span",null,"Due "+B.deadline):null),
+    h("div",{class:"pills"},cuts.map(c=>h("span",null,c.label+(c.duration?" · "+c.duration:""))),h("span",null,(cuts.length>1?cuts.length+" tech scripts · ":"")+total+" shots"+(need?" · "+need+" need new footage":"")),B.deadline?h("span",null,"Due "+B.deadline):null),
     h("nav",{class:"jump"},h("a",{href:"#script"},"Tech script"),h("a",{href:"#record"},"How to record"),h("a",{href:"#upload"},"Upload"),(B.captureList||[]).length?h("a",{href:"#checklist"},"What to record"):null,h("a",{href:"#music"},"Music"),h("a",{href:"#send"},"Send notes"))));
-  // 1) Tech script
-  const shotsSec=h("section",{id:"script"}), seg=h("div",{class:"seg",role:"tablist"}), listBox=h("div",{class:"list"});
-  const showCut=i=>{ [...seg.children].forEach((b,j)=>b.setAttribute("aria-selected",j===i?"true":"false")); const c=cuts[i]; listBox.replaceChildren(...(c?c.shots.map((x,k)=>shotCard(x,k+1)):[])); };
-  cuts.forEach((c,i)=>seg.append(h("button",{role:"tab",type:"button",onclick:()=>showCut(i)},c.label+(c.duration?" · "+c.duration:""))));
-  shotsSec.append(h("div",{class:"row",style:"margin-bottom:12px"},h("h2",{style:"margin:0"},"Tech script"),h("span",{class:"spacer"}),cuts.length>1?seg:null),
-    h("p",{class:"muted small",style:"margin:-4px 0 14px"},"The picture is a reference frame. Text on it is a draft, not final."),listBox);
+  // 1) Tech script — one per trailer; with more than one, make the switch impossible to miss
+  const shotsSec=h("section",{id:"script"}), listBox=h("div",{class:"list"}), many=cuts.length>1;
+  const counts=c=>{ const n=c.shots.length, nn=c.shots.filter(x=>x.needsCapture).length; return n+" shot"+(n===1?"":"s")+(nn?" · "+nn+" need footage":""); };
+  const bigTabs=h("div",{class:"scripttabs",role:"tablist","aria-label":"Tech scripts"}), stick=h("div",{class:"stickytabs",role:"tablist","aria-label":"Switch tech script"});
+  const title=h("div",{class:"scripttitle"}), nextBox=h("div");
+  let active=0;
+  const showCut=(i,scroll)=>{ active=i; const c=cuts[i];
+    [...bigTabs.children].forEach((t,j)=>t.setAttribute("aria-selected",j===i?"true":"false"));
+    [...stick.children].forEach((t,j)=>t.setAttribute("aria-selected",j===i?"true":"false"));
+    title.replaceChildren(many?h("span",{class:"of"},"Tech script "+(i+1)+" of "+cuts.length):null,h("b",null,c.label+" — "+c.name),c.duration?h("span",{class:"muted"}," · "+c.duration):null);
+    listBox.replaceChildren(...c.shots.map((x,k)=>shotCard(x,k+1)));
+    nextBox.replaceChildren(many&&i<cuts.length-1?h("button",{class:"btn fill nextscript",type:"button",onclick:()=>showCut(i+1,true)},"Next: "+cuts[i+1].label+" tech script →"):(many&&i>0?h("button",{class:"btn nextscript",type:"button",onclick:()=>showCut(0,true)},"← Back to "+cuts[0].label+" tech script"):null));
+    if(scroll) shotsSec.scrollIntoView({behavior:"smooth",block:"start"}); };
+  cuts.forEach((c,i)=>{
+    bigTabs.append(h("button",{role:"tab",type:"button",class:"scripttab",onclick:()=>showCut(i)},h("span",{class:"n"},String(i+1)),h("span",{class:"t"},h("b",null,c.label),h("span",null,c.name+(c.duration?" · "+c.duration:"")),h("span",{class:"c"},counts(c)))));
+    stick.append(h("button",{role:"tab",type:"button",onclick:()=>showCut(i,true)},c.label+(c.duration?" · "+c.duration:"")));
+  });
+  shotsSec.append(
+    h("h2",null,many?cuts.length+" tech scripts":"Tech script"),
+    many?h("div",{class:"multinote"},"This brief has "+cuts.length+" tech scripts — "+cuts.map(c=>c.label).join(" and ")+". Please go through each one."):null,
+    many?bigTabs:null, many?stick:null,
+    title,
+    h("p",{class:"muted small",style:"margin:4px 0 14px"},"The picture is a reference frame. Text on it is a draft, not final."),
+    listBox, nextBox);
   app.append(shotsSec); showCut(0);
   // 2) How to record
   app.append(h("section",{id:"record"},h("div",{class:"row",style:"margin-bottom:14px"},h("h2",{style:"margin:0"},"How to record"),h("span",{class:"spacer"}),h("a",{class:"btn sm",href:OBS_GUIDE,target:"_blank",rel:"noopener"},"Full OBS settings ↗")),

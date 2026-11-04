@@ -640,10 +640,16 @@ function openDriveImport(){
       const imgs=files.filter(x=>/^image\//.test(x.mimeType||"")), vids=files.filter(x=>/^video\//.test(x.mimeType||""));
       const checks=imgs.map(x=>({x,cb:h("input",{type:"checkbox",checked:false})}));
       const vchecks=vids.map(x=>({x,cb:h("input",{type:"checkbox",checked:true})}));
+      const allBtn=(group,label)=>{ const b=h("button",{class:"btn small",type:"button"}); const sync=()=>{ b.textContent=group.every(g=>g.cb.checked)?"Clear all":label; };
+        b.addEventListener("click",()=>{ const on=!group.every(g=>g.cb.checked); group.forEach(g=>{ g.cb.checked=on; }); sync(); master.sync&&master.sync(); }); group.forEach(g=>g.cb.addEventListener("change",()=>{ sync(); master.sync&&master.sync(); })); sync(); b.sync=sync; return b; };
+      const master=h("button",{class:"btn small primary",type:"button"}); const everything=[...vchecks,...checks];
+      master.sync=()=>{ master.textContent=everything.every(g=>g.cb.checked)?"Clear everything":"Select everything"; };
+      master.addEventListener("click",()=>{ const on=!everything.every(g=>g.cb.checked); everything.forEach(g=>{ g.cb.checked=on; }); master.sync(); vb&&vb.sync(); ib&&ib.sync(); }); master.sync();
+      const vb=vchecks.length?allBtn(vchecks,"Select all videos"):null, ib=checks.length?allBtn(checks,"Select all screenshots"):null;
       list.replaceChildren(
-        h("p",null,imgs.length+" screenshot"+(imgs.length===1?"":"s")+", "+vids.length+" video"+(vids.length===1?"":"s")+" in "+f.title+"."),
-        vids.length?h("div",null,h("b",null,"Videos — linked, not downloaded"),vchecks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title+(x.fileSize?" ("+(Number(x.fileSize)/1e9).toFixed(1)+" GB)":"")))):null,
-        imgs.length?h("div",{style:"margin-top:10px"},h("b",null,"Screenshots — tick to pull in so Claude can see them"),checks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title))):null,
+        h("div",{class:"row"},h("p",{style:"margin:0"},imgs.length+" screenshot"+(imgs.length===1?"":"s")+", "+vids.length+" video"+(vids.length===1?"":"s")+" in "+f.title+"."),h("span",{class:"spacer"}),everything.length?master:null),
+        vids.length?h("div",{style:"margin-top:10px"},h("div",{class:"row"},h("b",null,"Videos — linked, not downloaded"),h("span",{class:"spacer"}),vb),vchecks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title+(x.fileSize?" ("+(Number(x.fileSize)/1e9).toFixed(1)+" GB)":"")))):null,
+        imgs.length?h("div",{style:"margin-top:10px"},h("div",{class:"row"},h("b",null,"Screenshots — tick to pull in so Claude can see them"),h("span",{class:"spacer"}),ib),checks.map(({x,cb})=>h("label",{class:"row",style:"font-size:14px"},cb,x.title))):null,
         h("div",{class:"row",style:"margin-top:12px"},h("button",{class:"btn primary",onclick:async e=>{
           e.currentTarget.disabled=true;
           for (const {x:v,cb} of vchecks){ if(cb.checked&&!S.sources.some(s=>s.driveId===v.id)) S.sources.push({id:uid(),kind:"link",linkType:"Drive video",name:v.title,url:v.viewUrl,driveId:v.id,mime:v.mimeType,size:v.fileSize?Number(v.fileSize):null}); }
