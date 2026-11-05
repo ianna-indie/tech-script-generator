@@ -122,6 +122,9 @@ section{scroll-margin-top:16px}
 .stickytabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .scripttitle{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:19px;margin-top:4px}
 .scripttitle .of{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:4px 10px;border-radius:999px}
+.sugbox{display:flex;flex-direction:column;gap:8px}
+.sugimg{display:flex;align-items:center;gap:10px}
+.sugimg img{max-width:220px;border-radius:8px}
 .nextscript{margin-top:18px;width:100%;justify-content:center;padding:16px;font-size:17px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -179,8 +182,12 @@ function shotCard(s,num){
   else box.append(h("div",{class:"need"},h("b",null,"No reference yet"),h("span",null,"Please capture this from the description")));
   if(s.superPng) box.append(h("img",{src:s.superPng,alt:"",style:"position:absolute;inset:0;width:100%;height:100%;object-fit:cover"}));
   else if(s.superText){ const d=h("div"); d.innerHTML=svg(s.superText,ST); box.append(d.firstChild); }
-  const ta=h("textarea",{placeholder:"A different moment, or where to find it in the game",hidden:true}); ta.addEventListener("input",()=>{ shotNotes[s.key]=ta.value; });
-  const toggle=h("button",{class:"linkbtn",type:"button",onclick:()=>{ ta.hidden=!ta.hidden; if(!ta.hidden) ta.focus(); }},"Suggest a change");
+  const note=()=>(shotNotes[s.key]=shotNotes[s.key]||{text:"",sid:s.sid||"",image:""});
+  const ta=h("textarea",{placeholder:"A different moment, or where to find it in the game"}); ta.addEventListener("input",()=>{ note().text=ta.value; });
+  const thumb=h("div",{class:"sugimg"});
+  const pickImg=h("input",{type:"file",accept:"image/*",hidden:true,onchange:async e=>{ const f=e.target.files[0]; if(!f) return; const d=await shrinkImage(f); note().image=d; thumb.replaceChildren(h("img",{src:d,alt:"Your screenshot"}),h("button",{class:"linkbtn",type:"button",onclick:()=>{ note().image=""; thumb.replaceChildren(); }},"Remove")); }});
+  const sug=h("div",{class:"sugbox",hidden:true},ta,h("div",{class:"row",style:"gap:10px"},h("button",{class:"btn sm",type:"button",onclick:()=>pickImg.click()},"＋ Add a screenshot"),h("span",{class:"muted small"},"Optional — show the moment you mean")),pickImg,thumb);
+  const toggle=h("button",{class:"linkbtn",type:"button",onclick:()=>{ sug.hidden=!sug.hidden; if(!sug.hidden) ta.focus(); }},"Suggest a change");
   const row=(label,val)=>val?h("div",{class:"kv"},h("span",{class:"k"},label),h("div",{class:"v"},val)):null;
   return h("article",{class:"shot"+(s.needsCapture?" needs":"")},box,h("div",{class:"body"},
     h("div",{class:"head"},h("span",{class:"bignum"},String(num).padStart(2,"0")),h("span",{class:"num"},"Scene "+s.scene),s.needsCapture?h("span",{class:"badge"},"Needs new footage"):h("span",{class:"badge ok"},"Reference shown")),
@@ -189,8 +196,10 @@ function shotCard(s,num){
       row("Framing",FRAMING[s.shotType]||s.shotType),
       row("On-screen text",s.superChip?h("img",{src:s.superChip,alt:s.superText||"On-screen text",class:"chip-img"}):(s.superText?h("span",{class:"cardtext",style:`background:${ST.plateColor};color:${ST.text};font-family:"${ST.font}",sans-serif;box-shadow:inset 0 -3px 0 ${ST.accent}`},s.superText):null)),
       row("Sound",s.sound?(SOUNDLBL[s.sound]||s.sound)+(s.soundDesc?" — "+s.soundDesc:""):null)),
-    toggle,ta));
+    toggle,sug));
 }
+async function shrinkImage(f){ const url=URL.createObjectURL(f); const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+  const k=Math.min(1,960/im.width), c=document.createElement("canvas"); c.width=Math.round(im.width*k); c.height=Math.round(im.height*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(url); return c.toDataURL("image/jpeg",0.78); }
 let playing=null;
 function trackRow(t,i){
   const audio=t.audio?new Audio(t.audio):null, bar=h("i"), playBtn=h("button",{class:"play",type:"button","aria-label":"Play "+(t.name||"track"),disabled:!audio},"▶");
@@ -262,7 +271,7 @@ function render(){
     const lic=[{title:$("#licT").value.trim(),link:$("#licL").value.trim(),license:$("#licR").value.trim()}].filter(m=>m.title||m.link);
     try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,musicChoice,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.status);
-      msg.className="ok"; msg.textContent="Sent. Thank you!";
+      msg.className="ok"; msg.textContent="Sent. Thank you! indie.io has been notified.";
     }catch(e){ msg.className="err"; msg.textContent="Couldn't send — "+e.message; }
     send.disabled=false; }},PREVIEW?"Sending is off in preview":"Send");
   app.append(h("section",{id:"send",class:"card"},h("h2",null,"Send to indie.io"),h("p",{class:"muted small",style:"margin:-6px 0 14px"},"Your shot suggestions and music choice are included."),
