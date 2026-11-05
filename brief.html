@@ -125,6 +125,13 @@ section{scroll-margin-top:16px}
 .sugbox{display:flex;flex-direction:column;gap:8px}
 .sugimg{display:flex;align-items:center;gap:10px}
 .sugimg img{max-width:220px;border-radius:8px}
+.pickfor{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.pickfor .pf-label{font-size:12px;color:var(--muted);font-weight:600}
+.pickfor{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.suggested{font-size:12px;font-weight:600;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:2px 8px;border-radius:999px}
+.picksum{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.picksum span{font-size:14px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--fill);color:var(--muted)}
+.picksum span.done{background:var(--accent);color:var(--accent-fg)}
 .nextscript{margin-top:18px;width:100%;justify-content:center;padding:16px;font-size:17px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -162,7 +169,7 @@ function svg(text,st){
   const tsp=L.L.map((l,i)=>`<tspan x="${tx}" y="${b.y+L.padY+L.fs*.86+i*L.lh}">${esc(l)}</tspan>`).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" aria-hidden="true"><defs><filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity=".6"/></filter></defs>${plate}<text font-family="${esc(st.font)}, sans-serif" font-weight="${L.w}" font-size="${L.fs}" letter-spacing="${(st.tracking*L.fs).toFixed(1)}" fill="${st.text}" text-anchor="${L.mid?"middle":"start"}"${st.shadow?' filter="url(#sh)"':""}>${tsp}</text></svg>`;
 }
-let B=null, ST=null; const shotNotes={}; let musicChoice="";
+let B=null, ST=null; const shotNotes={}; let musicChoice=""; const musicPicks={}; // musicPicks: trailer label → track name
 async function load(){
   try{
     if(PREVIEW){ B=await new Promise(res=>{ const t=setTimeout(()=>res(null),8000); window.addEventListener("message",e=>{ if(e.origin===location.origin&&e.data&&e.data.type==="tsg-preview"){ clearTimeout(t); res(e.data.brief); } }); }); if(!B) throw new Error("Open the preview from the tool's Share step."); }
@@ -209,9 +216,22 @@ function trackRow(t,i){
     playBtn.addEventListener("click",()=>{ if(playing&&playing!==audio){ playing.pause(); document.querySelectorAll(".play").forEach(b=>b.textContent="▶"); }
       if(audio.paused){ audio.play(); playBtn.textContent="❚❚"; playing=audio; } else { audio.pause(); playBtn.textContent="▶"; } }); }
   const val=t.name||("Track "+(i+1));
-  const choose=h("button",{class:"btn sm choose",type:"button","aria-pressed":"false",onclick:()=>{ musicChoice=musicChoice===val?"":val; document.querySelectorAll(".choose").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===musicChoice?"true":"false")); document.querySelectorAll(".choose").forEach(b=>b.textContent=b.dataset.v===musicChoice?"Chosen":"Choose"); }},"Choose");
-  choose.dataset.v=val;
-  return h("div",{class:"track"},playBtn,h("div",{class:"t"},h("b",null,val),h("span",null,[t.mood,t.energy].filter(Boolean).join(" · ")||t.source||""),audio?h("div",{class:"bar"},bar):(t.url?h("a",{href:t.url,target:"_blank",rel:"noopener",class:"small"},"Listen ↗"):null)),choose);
+  const cutsL=(B.cuts||[]).map(c=>c.label);
+  let picks;
+  if(cutsL.length>1){
+    // one choose button per trailer — each trailer gets its own track
+    picks=h("div",{class:"pickfor"},h("span",{class:"pf-label"},"Choose for"),cutsL.map(lab=>{ const b=h("button",{class:"btn sm choose",type:"button","aria-pressed":"false","data-cut":lab,"data-v":val,onclick:()=>{ musicPicks[lab]=musicPicks[lab]===val?"":val; syncPicks(); }},lab); return b; }));
+  } else {
+    picks=h("button",{class:"btn sm choose",type:"button","aria-pressed":"false","data-v":val,onclick:()=>{ musicChoice=musicChoice===val?"":val; syncPicks(); }},"Choose");
+  }
+  const hint=t.fitsCut&&cutsL.length>1&&t.fitsCut!=="Both"?h("span",{class:"suggested"},"Suggested for "+t.fitsCut):null;
+  return h("div",{class:"track"},playBtn,h("div",{class:"t"},h("b",null,val),h("span",null,[t.mood,t.energy].filter(Boolean).join(" · ")||t.source||"",hint?" ":"",hint),audio?h("div",{class:"bar"},bar):(t.url?h("a",{href:t.url,target:"_blank",rel:"noopener",class:"small"},"Listen ↗"):null)),picks);
+}
+function syncPicks(){
+  const multi=(B.cuts||[]).length>1;
+  document.querySelectorAll(".choose").forEach(b=>{ const on=multi?musicPicks[b.dataset.cut]===b.dataset.v:musicChoice===b.dataset.v; b.setAttribute("aria-pressed",on?"true":"false"); b.textContent=multi?(on?"✓ "+b.dataset.cut:b.dataset.cut):(on?"Chosen":"Choose"); });
+  const sum=document.getElementById("picksum");
+  if(sum&&multi) sum.replaceChildren(...(B.cuts||[]).map(c=>h("span",{class:musicPicks[c.label]?"done":""},c.label+": "+(musicPicks[c.label]||"not chosen yet"))));
 }
 function render(){
   const app=$("#app"); app.replaceChildren();
@@ -259,9 +279,11 @@ function render(){
   // 5) Music
   const tracks=(B.music&&B.music.tracks)||[];
   const licBox=h("div",{class:"grid",hidden:true},h("input",{type:"text",id:"licT",placeholder:"Track name"}),h("input",{type:"url",id:"licL",placeholder:"Link"}),h("input",{type:"text",id:"licR",placeholder:"License (e.g. we own it)"}));
-  app.append(h("section",{id:"music"},h("h2",null,"Music"),h("p",{class:"muted small",style:"margin:-6px 0 14px"},"Play a track and tap Choose for the one you like."),
+  app.append(h("section",{id:"music"},h("h2",null,"Music"),h("p",{class:"muted small",style:"margin:-6px 0 10px"},(B.cuts||[]).length>1?"Play a track, then choose one for each trailer — "+(B.cuts||[]).map(c=>c.label).join(" and ")+". The same track can be used for both.":"Play a track and tap Choose for the one you like."),
+    (B.cuts||[]).length>1?h("div",{id:"picksum",class:"picksum"}):null,
     tracks.length?h("div",{class:"tracks"},tracks.map(trackRow)):h("p",{class:"muted"},"No tracks yet."),
     h("div",{class:"row",style:"margin-top:14px"},h("button",{class:"linkbtn",type:"button",onclick:()=>{ licBox.hidden=!licBox.hidden; }},"＋ Suggest licensed music")),licBox));
+  syncPicks();
   // 6) Send
   const name=h("input",{type:"text",placeholder:"Your name",autocomplete:"name"}), studio=h("input",{type:"text",placeholder:"Studio",autocomplete:"organization"});
   const notes=h("textarea",{placeholder:"Notes (optional)"}), hp=h("input",{type:"text",class:"hp",tabindex:"-1",autocomplete:"off","aria-hidden":"true"});
@@ -269,7 +291,7 @@ function render(){
   const send=h("button",{class:"btn fill",type:"button",disabled:PREVIEW,onclick:async()=>{
     send.disabled=true; msg.className="small muted"; msg.textContent="Sending…";
     const lic=[{title:$("#licT").value.trim(),link:$("#licL").value.trim(),license:$("#licR").value.trim()}].filter(m=>m.title||m.link);
-    try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,musicChoice,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
+    try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,musicChoice:(B.cuts||[]).length>1?Object.entries(musicPicks).filter(([,v])=>v).map(([k,v])=>k+": "+v).join(" · "):musicChoice,musicChoices:(B.cuts||[]).length>1?musicPicks:undefined,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.status);
       msg.className="ok"; msg.textContent="Sent. Thank you! indie.io has been notified.";
     }catch(e){ msg.className="err"; msg.textContent="Couldn't send — "+e.message; }

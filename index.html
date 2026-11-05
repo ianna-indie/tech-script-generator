@@ -1211,7 +1211,7 @@ function stepMusic(){
       h("p",{class:"note"},"Envato: open the search, pick a track, paste its link."),
       S.tracks.map((t,i)=>{ const prev=h("div",{style:"margin-top:8px"});
         return h("div",{class:"panel",style:"margin-top:12px"},
-          h("div",{class:"row"},h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},t.source),t.label?h("b",null,t.label):null,h("span",{class:"spacer"}),
+          h("div",{class:"row"},h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},t.source),(t.chosenFor||[]).map(l=>h("span",{class:"chip",style:"background:var(--indigo);color:#fff"},"Chosen for "+l)),t.chosen?h("span",{class:"chip",style:"background:var(--indigo);color:#fff"},"Chosen"):null,t.label?h("b",null,t.label):null,h("span",{class:"spacer"}),
             t.searchUrl?h("a",{class:"btn small",href:t.searchUrl,target:"_blank",rel:"noopener"},"Search Envato: "+t.search):null,
             t.driveId?h("button",{class:"btn small",disabled:!MCP,onclick:e=>playTrack(t,e.currentTarget)},"▶"):null,
             t.url?h("a",{class:"btn small",href:t.url,target:"_blank",rel:"noopener"},"Open"):null,
@@ -2117,7 +2117,7 @@ async function buildBriefPayload(withAudio){
   const tracks=(S.tracks||[]).filter(t=>(t.url||t.name)&&!/⚠/.test(t.notes||"")&&t.source!=="Developer suggestion");
   const out={game:p.game||"Untitled",message:sh.message,uploadLink:sh.uploadLink,deadline:sh.deadline,contact:sh.contact,
     summary:sh.summary,captureList:sh.captureList||[],style:st,cuts:[],music:{tracks:[]}};
-  for(const t of tracks){ let audio=null; if(withAudio){ try{ audio=await makeAudioPreview(t); }catch(e){ audio=null; } } out.music.tracks.push({source:t.source,name:t.name,url:t.url,mood:t.mood,energy:t.energy,audio}); }
+  for(const t of tracks){ let audio=null; if(withAudio){ try{ audio=await makeAudioPreview(t); }catch(e){ audio=null; } } out.music.tracks.push({source:t.source,name:t.name,url:t.url,mood:t.mood,energy:t.energy,fitsCut:t.fitsCut||"",audio}); }
   for(const c of cuts()){
     const list=shotsOf(c), shots=[]; let prev=null, n=0;
     for(let i=0;i<list.length;i++){ const s=list[i]; const sc=Number(s.scene)||1; if(sc!==prev){ n=0; prev=sc; } n++;
@@ -2186,9 +2186,14 @@ function replyCard(x){
   const doneToggle=k=>{ const c=h("input",{type:"checkbox",checked:!!sh.done[doneKey(k)]}); c.addEventListener("change",()=>{ sh.done[doneKey(k)]=c.checked; save(); c.closest(".reply-item").style.opacity=c.checked?.5:1; }); return h("label",{class:"row",style:"gap:6px;font-size:13px"},c,"Done"); };
   const img=(src,label)=>src?h("figure",{style:"margin:0"},h("figcaption",{class:"note",style:"margin-bottom:4px"},label),h("img",{src,alt:label,style:"width:220px;max-width:100%;border-radius:8px;cursor:zoom-in;display:block",onclick:()=>openDialog(label,h("img",{src,alt:label,style:"width:100%;border-radius:10px"}))})):null;
   const items=[];
-  if(x.musicChoice){ const t=(S.tracks||[]).find(t=>(t.name||"")===x.musicChoice);
-    items.push(h("div",{class:"reply-item"},h("div",{class:"row"},h("b",null,"🎵 Music pick"),h("span",null,x.musicChoice),h("span",{class:"spacer"}),
-      t?h("button",{class:"btn small",onclick:e=>{ (S.tracks||[]).forEach(o=>o.chosen=false); t.chosen=true; t.notes=((t.notes||"").replace(/\n?✔ Chosen by .*$/,"")+"\n✔ Chosen by "+who).trim(); save(); e.currentTarget.textContent="Marked as chosen ✓"; }},t.chosen?"Chosen ✓":"Mark as chosen"):null))); }
+  const picks=x.musicChoices&&Object.keys(x.musicChoices).length?Object.entries(x.musicChoices):(x.musicChoice?[["",x.musicChoice]]:[]);
+  picks.forEach(([cutLab,name])=>{ const t=(S.tracks||[]).find(t=>(t.name||"")===name);
+    const isOn=()=>t&&(cutLab?(t.chosenFor||[]).includes(cutLab):t.chosen);
+    items.push(h("div",{class:"reply-item"},h("div",{class:"row"},h("b",null,"🎵 Music pick"+(cutLab?" for "+cutLab:"")),h("span",null,name),h("span",{class:"spacer"}),
+      t?h("button",{class:"btn small",onclick:e=>{
+        if(cutLab){ (S.tracks||[]).forEach(o=>{ o.chosenFor=(o.chosenFor||[]).filter(l=>l!==cutLab); }); t.chosenFor=[...(t.chosenFor||[]),cutLab]; }
+        else { (S.tracks||[]).forEach(o=>o.chosen=false); t.chosen=true; }
+        save(); e.currentTarget.textContent="Chosen"+(cutLab?" for "+cutLab:"")+" ✓"; }},isOn()?"Chosen"+(cutLab?" for "+cutLab:"")+" ✓":"Mark as chosen"+(cutLab?" for "+cutLab:"")):h("span",{class:"note"},"(track no longer in your Music list)")))); });
   (x.licensedMusic||[]).forEach(m=>items.push(h("div",{class:"reply-item"},h("div",{class:"row"},h("b",null,"＋ Their music"),h("span",null,m.title||"Track"),m.link?h("a",{href:m.link,target:"_blank",rel:"noopener"},"Listen ↗"):null,m.license?h("span",{class:"note"},m.license):null,h("span",{class:"spacer"}),
     h("button",{class:"btn small",onclick:e=>{ S.tracks.push({id:uid(),source:"Developer suggestion",name:m.title,url:m.link,mood:"",energy:"",notes:(m.license?"License: "+m.license+"\n":"")+"From "+who,locked:true}); save(); e.currentTarget.disabled=true; e.currentTarget.textContent="Added to Music ✓"; }},"Add to Music")))));
   if(x.notes) items.push(h("div",{class:"reply-item"},h("b",null,"💬 Notes"),h("p",{style:"white-space:pre-wrap;margin:6px 0 0"},x.notes)));

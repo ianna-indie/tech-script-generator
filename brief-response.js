@@ -34,7 +34,8 @@ module.exports = async function handler(req, res) {
     if (!brief) return res.status(404).json({ error: "This brief wasn't found." });
     const clean = {
       name: clip(b.name, 120), studio: clip(b.studio, 120), email: clip(b.email, 200),
-      musicChoice: clip(b.musicChoice, 300),
+      musicChoice: clip(b.musicChoice, 600),
+      musicChoices: b.musicChoices && typeof b.musicChoices === "object" ? Object.fromEntries(Object.entries(b.musicChoices).slice(0, 10).map(([k, v]) => [clip(k, 40), clip(v, 300)]).filter(([, v]) => v)) : null,
       licensedMusic: (Array.isArray(b.licensedMusic) ? b.licensedMusic : []).slice(0, 10).map((m) => ({ title: clip(m.title, 200), link: okUrl(m.link), license: clip(m.license, 500) })).filter((m) => m.title || m.link),
       footageUploaded: !!b.footageUploaded,
       notes: clip(b.notes, 8000),
@@ -75,7 +76,7 @@ async function notify(req, id, brief, r) {
     <p style="color:#6e6e73;font-size:13px;margin:0">indie.io · developer feedback</p>
     <h1 style="font-size:24px;margin:6px 0 4px">${e(brief.game)}</h1>
     <p style="margin:0 0 16px">${e(who)} sent feedback on the capture brief${r.footageUploaded ? " · <b>footage uploaded ✓</b>" : ""}.</p>
-    ${r.musicChoice ? `<p><b>Music pick:</b> ${e(r.musicChoice)}</p>` : ""}
+    ${r.musicChoices && Object.keys(r.musicChoices).length ? `<p><b>Music picks:</b></p><ul>${Object.entries(r.musicChoices).map(([k, v]) => `<li><b>${e(k)}:</b> ${e(v)}</li>`).join("")}</ul>` : (r.musicChoice ? `<p><b>Music pick:</b> ${e(r.musicChoice)}</p>` : "")}
     ${r.licensedMusic.length ? `<p><b>Licensed music they suggest:</b></p><ul>${r.licensedMusic.map((m) => `<li>${e(m.title || "Track")}${m.link ? ` — <a href="${e(m.link)}">${e(m.link)}</a>` : ""}${m.license ? ` (${e(m.license)})` : ""}</li>`).join("")}</ul>` : ""}
     ${r.notes ? `<p><b>Notes:</b><br>${e(r.notes).replace(/\n/g, "<br>")}</p>` : ""}
     ${blocks ? `<h2 style="font-size:18px;margin:20px 0 4px">Shot suggestions</h2><table role="presentation" width="100%">${blocks}</table>` : ""}
