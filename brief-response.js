@@ -44,8 +44,10 @@ module.exports = async function handler(req, res) {
     };
     const stamp = clean.receivedAt.replace(/[:.]/g, "-") + "-" + Math.random().toString(36).slice(2, 8);
     await store.putJSON("responses/" + b.id + "/" + stamp + ".json", clean);
-    let emailed = false;
-    try { emailed = !!(await notify(req, b.id, brief, clean)).id; } catch (e) { console.error("notify failed:", e.message); }
+    let emailed = false, emailError = "";
+    try { emailed = !!(await notify(req, b.id, brief, clean)).id; if (!emailed) emailError = mail.ready() ? "no recipient" : "RESEND_API_KEY not set"; }
+    catch (e) { emailError = e.message; console.error("notify failed:", e.message); }
+    if (!emailed) { clean.emailError = emailError; try { await store.putJSON("responses/" + b.id + "/" + stamp + ".json", clean); } catch (e) {} }
     return res.status(200).json({ ok: true, emailed });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't save your response (" + (e.message || e) + "). Please try again." });

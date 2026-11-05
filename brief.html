@@ -293,7 +293,7 @@ function render(){
     const lic=[{title:$("#licT").value.trim(),link:$("#licL").value.trim(),license:$("#licR").value.trim()}].filter(m=>m.title||m.link);
     try{ const r=await fetch("/api/brief-response",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,name:name.value,studio:studio.value,musicChoice:(B.cuts||[]).length>1?Object.entries(musicPicks).filter(([,v])=>v).map(([k,v])=>k+": "+v).join(" · "):musicChoice,musicChoices:(B.cuts||[]).length>1?musicPicks:undefined,licensedMusic:lic,footageUploaded:up.checked,notes:notes.value,shotNotes,website:hp.value})});
       const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||r.status);
-      msg.className="ok"; msg.textContent="Sent. Thank you! indie.io has been notified.";
+      msg.className="ok"; msg.textContent="Sent. Thank you!";
     }catch(e){ msg.className="err"; msg.textContent="Couldn't send — "+e.message; }
     send.disabled=false; }},PREVIEW?"Sending is off in preview":"Send");
   app.append(h("section",{id:"send",class:"card"},h("h2",null,"Send to indie.io"),h("p",{class:"muted small",style:"margin:-6px 0 14px"},"Your shot suggestions and music choice are included."),

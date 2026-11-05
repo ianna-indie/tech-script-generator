@@ -2211,14 +2211,23 @@ function replyCard(x){
     items.push(it);
   });
   return h("div",{class:"panel",style:"margin-top:12px"},
-    h("div",{class:"row"},h("b",{style:"font-size:16px"},who),x.footageUploaded?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Footage uploaded ✓"):null,h("span",{class:"spacer"}),h("span",{class:"note"},new Date(x.receivedAt).toLocaleString())),
+    h("div",{class:"row"},h("b",{style:"font-size:16px"},who),x.footageUploaded?h("span",{class:"chip",style:"background:var(--lav);color:var(--indigo)"},"Footage uploaded ✓"):null,x.emailError?h("span",{class:"chip",title:x.emailError},"Email not sent: "+x.emailError.slice(0,80)):null,h("span",{class:"spacer"}),h("span",{class:"note"},new Date(x.receivedAt).toLocaleString())),
     h("div",{style:"display:flex;flex-direction:column;gap:10px;margin-top:10px"},items.length?items:[h("p",{class:"note"},"(empty reply)")]));
+}
+
+async function testEmail(btn,out){
+  btn.disabled=true; out.textContent="Sending a test email…"; out.className="note";
+  try{ const t=await token(); const r=await fetch("/api/notify-test",{method:"POST",headers:{Authorization:"Bearer "+t}}); const j=await r.json();
+    if(j.ok){ out.textContent="Test email sent to "+j.to+" — check your inbox (and spam)."; out.className="okc"; }
+    else { out.textContent="Email isn't working: "+(j.reason||j.error||r.status); out.className="err"; } }
+  catch(e){ out.textContent="Couldn't run the test: "+((e&&e.message)||e)+". If this is a 404, upload api/notify-test.js and redeploy."; out.className="err"; }
+  btn.disabled=false;
 }
 
 function stepShare(){
   const sh=shr();
   const fld=(label,k,opts={})=>{ const el=opts.area?h("textarea",{rows:opts.rows||3,placeholder:opts.ph||""}):h("input",{type:"text",placeholder:opts.ph||""}); el.value=sh[k]||""; el.addEventListener("input",e=>{ sh[k]=e.target.value; save(); }); return h("label",{class:"f"+(opts.wide?" wide":"")},label,el); };
-  const msg=h("p",{class:"note"}), smsg=h("p",{class:"note"}), pmsg=h("p",{class:"note"}), respBox=h("div"), prevBox=h("div",{style:"margin-top:12px"});
+  const msg=h("p",{class:"note"}), smsg=h("p",{class:"note"}), pmsg=h("p",{class:"note"}), respBox=h("div"), prevBox=h("div",{style:"margin-top:12px"}), emailOut=h("p",{class:"note"});
   const cl=sh.captureList||[];
   return [
     h("h1",null,"Share"),
@@ -2241,7 +2250,7 @@ function stepShare(){
       msg,pmsg,
       sh.briefUrl?h("p",{style:"margin-top:6px"},h("a",{href:sh.briefUrl,target:"_blank",rel:"noopener"},sh.briefUrl)):null,
       prevBox,
-      sh.briefId?h("div",{style:"margin-top:14px"},h("div",{class:"row"},h("b",null,"Replies"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check")),respBox):null),
+      sh.briefId?h("div",{style:"margin-top:14px"},h("div",{class:"row"},h("b",null,"Replies"),h("button",{class:"btn small",onclick:e=>loadResponses(e.currentTarget,respBox)},"Check"),h("span",{class:"spacer"}),window.TSG_SERVER?h("button",{class:"btn small ghost",onclick:e=>testEmail(e.currentTarget,emailOut)},"Send test email"):null),emailOut,respBox):null),
     h("div",{class:"row",style:"margin-top:24px"},h("button",{class:"btn",onclick:()=>go(5)},"Back"),h("button",{class:"btn primary",onclick:()=>go(7)},"Continue"))
   ];
 }
