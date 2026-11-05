@@ -8,12 +8,12 @@ function ready() { return !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BL
 async function putJSON(pathname, data) {
   const body = JSON.stringify(data);
   try {
-    return await blob.put(pathname, body, { access: ACCESS, contentType: "application/json", addRandomSuffix: false });
+    return await blob.put(pathname, body, { access: ACCESS, contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
   } catch (e) {
     // Older/public-only stores reject private blobs (and vice versa) — switch once and remember.
     if (/access|public|private/i.test(String(e.message))) {
       ACCESS = ACCESS === "private" ? "public" : "private";
-      return await blob.put(pathname, body, { access: ACCESS, contentType: "application/json", addRandomSuffix: false });
+      return await blob.put(pathname, body, { access: ACCESS, contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
     }
     throw e;
   }

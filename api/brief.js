@@ -19,7 +19,8 @@ module.exports = async function handler(req, res) {
       if (!store.validId(id)) return res.status(400).json({ error: "This brief link isn't valid." });
       const b = await store.latestBrief(id);
       if (!b) return res.status(404).json({ error: "This brief wasn't found. It may have been removed — ask indie.io for a new link." });
-      return res.status(200).json(b);
+      const { updatedBy, notifyEmail, ...pub } = b;
+      return res.status(200).json(pub);
     }
     if (req.method === "POST") {
       const email = await verifyGoogle(req);
@@ -28,7 +29,7 @@ module.exports = async function handler(req, res) {
       if (!brief || !brief.game) return res.status(400).json({ error: "Missing brief content." });
       const id = store.validId(givenId) ? givenId : newId(brief);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      await store.putJSON("briefs/" + id + "/" + stamp + ".json", Object.assign({}, brief, { id, updatedAt: new Date().toISOString(), updatedBy: email }));
+      await store.putJSON("briefs/" + id + "/" + stamp + ".json", Object.assign({}, brief, { id, updatedAt: new Date().toISOString(), updatedBy: email, notifyEmail: brief.notifyEmail || email }));
       // BRIEF_BASE_URL lets links use a friendlier domain (e.g. https://iio-creative.vercel.app) than the one the tool runs on.
       const base = (process.env.BRIEF_BASE_URL || "").replace(/\/+$/, "") ||
         ((req.headers["x-forwarded-proto"] || "https") + "://" + (req.headers["x-forwarded-host"] || req.headers.host));

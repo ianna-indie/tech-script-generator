@@ -53,6 +53,15 @@ Vercel → project → **Settings → Domains → Add** → e.g. `iio-creative.v
 `BRIEF_BASE_URL=https://iio-creative.vercel.app` and redeploy. A custom domain like `briefs.indie.io` works the same way (needs a DNS record from IT). Anyone with the link can view the page and send
 a reply (no sign-in), so share it only with the dev team. Publishing again keeps the same link.
 
+## Email when developers reply
+
+1. Sign up at **resend.com** with your indie.io email → **API Keys → Create** → copy the key (`re_…`).
+2. Vercel → Environment Variables: `RESEND_API_KEY` = that key. Redeploy.
+Replies are emailed to whoever published the brief (or `NOTIFY_EMAIL` if set), with each suggestion, the shot's current reference
+image, the developer's screenshot, and an **Open in the Tech Script Generator** button that jumps straight to the replies.
+Until you verify a sending domain in Resend, mail comes from Resend's test address and only reaches the email you signed up with —
+fine for you; set `NOTIFY_FROM` (e.g. `Tech Scripts <briefs@indie.io>`) after verifying indie.io to send from your own domain.
+
 ## Keep the tool private (indie.io only)
 
 The tool (`/`) only opens for signed-in indie.io accounts; developer pages (`/b/…`) stay public.
